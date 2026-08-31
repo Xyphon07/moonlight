@@ -1,0 +1,10 @@
+packages:
+  ../..
+  ../../../moonlight-homology
+
+-- No Template Haskell anywhere in this closure, so the dynamic way is pure
+-- waste: every library module was being compiled twice. Scheduling and ways
+-- only — the vanilla objects the benchmark binary links are unchanged.
+shared: False
+semaphore: True
+optimization: 2

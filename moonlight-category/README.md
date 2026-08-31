@@ -1,0 +1,206 @@
+# moonlight-category
+
+> Part of **Moonlight**, the sheaf-theoretic computation layer beneath
+> [Melusine](https://bluerose.blue) and Pale Meridian.
+
+`moonlight-category` is Moonlight's categorical tier. Building on
+[`moonlight-core`](https://hackage.haskell.org/package/moonlight-core), it provides a totalised,
+explicit-error category abstraction together with the finite, runtime-validated
+categories and site/path presentations the compiler uses to model its own structure.
+
+![A real Moonlight triangulation blooming into its path-sensitive normalized flag nerve.](./docs/social/moonlight-category-flag-nerve.gif)
+
+Each glowing simplex is one composable chain: face → edge → vertex. This real
+eleven-face triangulation contains 66 such flags. [Open the static vector.](./docs/moonlight-category-flag-nerve.svg)
+
+## Relationship to `data-category`
+
+If you want general indexed category theory in Haskell, prefer Sjoerd Visscher's
+[`data-category`](https://hackage.haskell.org/package/data-category). Its typed-arrow
+calculus is the primary inspiration for this package's indexed layer, and several
+modules under `Moonlight.Category.Indexed` are adapted from it. Thank you to Sjoerd
+Visscher for the design and implementation work in `data-category`.
+
+Full attribution and the upstream BSD-3-Clause license are recorded in
+[`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
+
+## What it provides
+
+- **A category abstraction.** The `Category` class is totalised: objects, morphisms,
+  2-morphisms, compositors and a category-specific error type are associated types,
+  and every operation returns `Either`.
+- **Limits and colimits.** A class tower for products, coproducts, pullbacks,
+  pushouts, equalizers and coequalizers.
+- **Higher structure.** 2-categories, bicategories, monoidal and enriched categories.
+- **Finite categories.** `FinCat`: runtime-validated finite categories with handles,
+  bit-packed thin variants, composable chains and core/automorphism groupoid
+  extraction.
+- **Finite-category presentations.** `Moonlight.Category.Presentation` provides a
+  focused authoring EDSL for finite posets and fully enumerated finite categories,
+  compiling down to validated `FinCat`.
+- **Sites and presentations.** Site manifests with validation, reachable-closure and
+  import-cycle diagnostics, path categories, quotients, and compilation down to
+  `FinCat`.
+- **Rewriting witnesses.** Adhesive and PBPO pushout-complement witnesses, structured
+  cospans, double categories, and decorated composition/presentation.
+- **Indexed category theory.** The typed-arrow layer adapted from `data-category`.
+- **Simplicial substrate.** Runtime-dimensional Δ morphisms, finite truncated
+  simplicial sets, standard/boundary/horn spaces, nerves, Kan interfaces, and
+  connected-component/core-groupoid queries over finite composable categories.
+
+## Public modules
+
+| Module | Cabal component | Surface |
+| --- | --- | --- |
+| `Moonlight.Category` | `moonlight-category` | The broad categorical surface: `Category` and composition, the limit/colimit and higher-category towers, finite and thin categories, invertibility/groupoids, adhesive & PBPO witnesses, structured cospans, double categories, decorated composition, Galois connections, polynomial functors, covering families, and the site/path layer. |
+| `Moonlight.Category.Indexed` | `moonlight-category` | The indexed, typed-arrow category-theory layer adapted from `data-category`: indexed categories, functors, natural transformations, adjunctions, (co)limits, Kan extensions, products/coproducts and the simplex category. |
+| `Moonlight.Category.Presentation` | `moonlight-category` | The finite-category authoring surface: named objects, named nonidentity morphisms, strict-order `below` declarations, identities in equations, and compilation to `FinCat`. |
+| `Moonlight.Category.Notation` | `moonlight-category` | Scoped query and composition helpers for already-compiled `FinCat` values. |
+| `Moonlight.Category.Simplicial` | `moonlight-category:simplicial` | The public simplicial surface: Δ, simplicial sets, nerves, Kan interfaces, homotopy queries, and pure validation. |
+
+The `Moonlight.Category.Pure.*` leaves live in named implementation sublibraries:
+`abstract` for generic category theory, `finite` for `FinCat`/presentation runtime,
+`site` for site and path compilation, `indexed` for the adapted `data-category`
+typed-arrow layer, and `simplicial` for Δ, simplicial sets, nerves and Kan
+interfaces. Effectful law harnesses and cross-package test fixtures live in the
+`laws` sublibrary rather than the pure production components.
+
+### Main-library and simplicial consumers
+
+The simplicial facade is a separate public Cabal component. A program using both
+facades must request both components explicitly:
+
+```cabal
+build-depends:
+    moonlight-category >= 1.1.0.0 && < 1.2,
+    moonlight-category:simplicial >= 1.1.0.0 && < 1.2
+```
+
+```haskell
+import Moonlight.Category
+import Moonlight.Category.Simplicial
+```
+
+Those two facades are the ordinary consumer path. `Moonlight.Category` owns site
+compilation and provenance lookup; `Moonlight.Category.Simplicial` owns nerves and
+their simplicial queries. A consumer should not need a `Pure.*` import to compile a
+site's import category, inspect its nerve, or recover source object names.
+
+### Site provenance and nerves
+
+Use `thinSiteImportKernel` when only the import category is required, then obtain
+its `FinCat` with `thinSiteKernelCodomain`. Use `thinSiteKernel` when full cover
+validation is required. Site-derived `FinObjectId` values are kernel-relative
+representation tokens: their numerical order is not a semantic name or a stable
+persistence contract. Preserve the `ThinSiteKernel` and cross the boundary through
+`thinSiteFinObject` and `thinSiteObjectValue` instead of reconstructing an object
+map from `siteObjects`.
+
+For ordinary topological or combinatorial work, use `normalizedNerve`; it enumerates
+nonidentity chains and closes under faces. `unnormalizedNerve` materializes every
+composable chain, including identity insertions, and is deliberately for small law
+or diagnostic workloads: its truncation bound is not a memory budget. A validated
+`ComposableChain` retains its vertices, so `chainVertices` is a total projection;
+there is no fallible category lookup after construction.
+
+## Dependency footprint
+
+Hackage's package-level dependency summary aggregates dependencies from every
+component in the distribution. Depending on the main `moonlight-category`
+library does not select `moonlight-category:laws` and therefore does not add
+Tasty, Hedgehog, or `moonlight-pale:test-laws`. Consumers opt into that reusable
+law harness explicitly with a dependency on `moonlight-category:laws`.
+
+## Finite-category presentations
+
+Use `Moonlight.Category.Presentation` to write finite categories declaratively.
+Compilation always produces the validated runtime representation `FinCat`.
+
+### Finite posets
+
+`below` declares strict generating inequalities. Compilation takes the transitive
+closure, rejects cycles, and supplies identities implicitly.
+
+```haskell
+import Moonlight.Category.Presentation
+
+threeChain :: Either FinCatBuildError FinCat
+threeChain =
+  finCategory $ do
+    [a, b, c] <- objects ["A", "B", "C"]
+    below a b
+    below b c
+```
+
+### Fully enumerated finite categories
+
+In the general dialect, each call to `arrow` declares one actual nonidentity
+morphism of the resulting category. Equations determine the nonidentity
+composition table.
+
+```haskell
+import Moonlight.Category.Presentation
+
+commutingTriangle :: Either FinCatBuildError FinCat
+commutingTriangle =
+  finCategory $ do
+    a <- object "A"
+    b <- object "B"
+    c <- object "C"
+
+    f <- arrow a b "f"
+    g <- arrow b c "g"
+    h <- arrow a c "h"
+
+    equate (g `after` f) h
+```
+
+Identities may be named inside equations:
+
+```haskell
+inversePair :: Either FinCatBuildError FinCat
+inversePair =
+  finCategory $ do
+    a <- object "A"
+    b <- object "B"
+
+    f <- arrow a b "f"
+    g <- arrow b a "g"
+
+    equate (g `after` f) (identityAt a)
+    equate (f `after` g) (identityAt b)
+```
+
+Longer paths are accepted when their proper intermediate composites are determined
+elsewhere in the presentation. Equation declaration order is irrelevant.
+
+The presentation dialect accepts declared morphisms and equations over determined
+composites. An equation such as `equate f g` for distinct declared morphisms is
+rejected rather than silently identifying them.
+
+For querying and composing morphisms after compilation, import
+`Moonlight.Category.Notation` separately.
+
+## Acknowledgements
+
+The representation of finite and finitely-presented categories as concrete,
+runtime-validated data structures, including `FinCat` and the site/path
+presentations that compile down to it, was directly inspired by the
+[AlgebraicJulia](https://www.algebraicjulia.org/) ecosystem and the work on attributed
+C-sets (acsets), whose thesis is precisely that categorical objects can be realised as
+performant data structures. The implementation here is independent; the conceptual
+debt is real and gratefully acknowledged.
+
+> Evan Patterson, Owen Lynch, and James Fairbanks.
+> "Categorical Data Structures for Technical Computing." arXiv:2106.04703.
+> <https://arxiv.org/abs/2106.04703>
+
+Thank you to Evan Patterson, Owen Lynch, James Fairbanks, and the AlgebraicJulia
+community.
+
+## License
+
+Moonlight's original code is licensed under MIT; see [`LICENSE`](./LICENSE).
+The indexed modules adapted from `data-category` remain BSD-3-Clause; their
+copyright notice, license terms, and attribution are recorded in
+[`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).

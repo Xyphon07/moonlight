@@ -1,0 +1,23 @@
+# Public Moonlight mirror: the foundation packages published to Hackage whose
+# source-repository stanzas name this repository.
+#
+# josh assembles a flat public repository from the private Pale-Meridian
+# monorepo: each line maps an output directory in the mirror to a subtree of
+# the monorepo.  An output directory here must match the `subdir:` a published
+# package declares, or its Hackage source link resolves to nothing.
+#
+# Regenerate with tools/moonlight-mirror/regenerate.sh; see tools/moonlight-mirror/README.md.
+
+# A line here makes a subtree world-readable and nothing downstream will
+# question it. Only packages published or staged as Hackage candidates belong
+# in this list, because the sole reason the mirror exists is to make their
+# `source-repository` links resolve.
+
+moonlight-core                     = :/compiler/foundation/moonlight-core
+moonlight-pale                     = :/compiler/foundation/moonlight-pale
+moonlight-algebra                  = :/compiler/foundation/moonlight-algebra
+moonlight-category                 = :/compiler/foundation/moonlight-category
+moonlight-delta                    = :/compiler/foundation/moonlight-delta
+moonlight-linalg                   = :/compiler/foundation/moonlight-linalg
+moonlight-homology                 = :/compiler/foundation/moonlight-homology
+moonlight-planar            = :/compiler/foundation/moonlight-planar

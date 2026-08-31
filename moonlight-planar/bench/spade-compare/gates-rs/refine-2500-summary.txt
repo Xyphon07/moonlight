@@ -1,0 +1,6 @@
+added 2500
+vertices 2504
+edges 7412
+inner-faces 4909
+excluded 0
+complete 0

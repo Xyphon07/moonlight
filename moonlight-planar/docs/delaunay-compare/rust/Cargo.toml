@@ -1,0 +1,20 @@
+[workspace]
+
+[package]
+name = "moonlight-delaunay-compare-referents"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "moonlight_delaunay_compare_referents"
+crate-type = ["cdylib"]
+
+[dependencies]
+cdt = "0.1"
+delaunator = "1.0.1"
+rand = "0.9.1"
+spade = "2.15"
+
+[profile.release]
+opt-level = 3
+lto = "thin"

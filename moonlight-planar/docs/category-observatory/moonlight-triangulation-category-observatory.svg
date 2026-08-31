@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 920" role="img" aria-labelledby="title description">
+<title id="title">Moonlight category observatory</title>
+<desc id="description">One checked Delaunay section shown as geometry, a local face-edge-vertex incidence flag, and the full path-sensitive flag nerve.</desc>
+<defs>
+  <linearGradient id="background" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#10262a"/><stop offset="0.48" stop-color="#071217"/><stop offset="1" stop-color="#120f20"/></linearGradient>
+  <radialGradient id="cyan-glow"><stop stop-color="#72d6c2" stop-opacity="0.22"/><stop offset="1" stop-color="#72d6c2" stop-opacity="0"/></radialGradient>
+  <radialGradient id="violet-glow"><stop stop-color="#bc8cff" stop-opacity="0.22"/><stop offset="1" stop-color="#bc8cff" stop-opacity="0"/></radialGradient>
+  <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#9bc7bd" stroke-opacity="0.07" stroke-width="1"/></pattern>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#72d6c2"/></marker>
+  <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.28"/></filter>
+  <style><![CDATA[
+    .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
+    .serif{font-family:Georgia,'Times New Roman',serif}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .panel{fill:#0a181d;fill-opacity:.93;stroke:#8bbeb2;stroke-opacity:.22;stroke-width:1.2}
+    .kicker{fill:#72d6c2;font-size:12px;font-weight:700;letter-spacing:2.8px}
+    .title{fill:#f1eee7;font-size:48px;font-weight:400;letter-spacing:-1.4px}
+    .subtitle{fill:#9ab0aa;font-size:16px}
+    .panel-number{fill:#72d6c2;font-size:11px;font-weight:700;letter-spacing:1.6px}
+    .panel-title{fill:#f1eee7;font-size:25px}
+    .callout-title{fill:#f1eee7;font-size:21px}
+    .panel-note{fill:#8ca49f;font-size:12px}
+    .metric-value{fill:#f1eee7;font-size:18px;font-weight:700}
+    .metric-label{fill:#8ca49f;font-size:9px;font-weight:700;letter-spacing:1.2px}
+    .mesh-face{fill:#72d6c2;fill-opacity:.035;stroke:none}
+    .mesh-face.selected{fill:#ffad66;fill-opacity:.28}
+    .mesh-edge{stroke:#72d6c2;stroke-opacity:.58;stroke-width:1.7}
+    .mesh-edge.selected{stroke:#ffad66;stroke-opacity:1;stroke-width:5}
+    .mesh-vertex{fill:#071217;stroke:#f2e37e;stroke-width:2.2}
+    .mesh-vertex.selected{fill:#f2e37e;stroke:#fff7b0;stroke-width:4}
+    .nerve-simplex{fill:#bc8cff;fill-opacity:.065;stroke:#bc8cff;stroke-opacity:.42;stroke-width:1.1}
+    .nerve-simplex.selected{fill:#ffad66;fill-opacity:.48;stroke:#ffd1a8;stroke-opacity:1;stroke-width:3}
+    .object-face{fill:#ffad66}.object-edge{fill:#72d6c2}.object-vertex{fill:#f2e37e}
+    .node-label{fill:#f1eee7;font-size:23px;font-weight:700}.node-kind{fill:#8ca49f;font-size:10px;font-weight:700;letter-spacing:1.4px}
+    .profile-label{fill:#8ca49f;font-size:11px;font-weight:700;letter-spacing:1px}.profile-value{fill:#f1eee7;font-size:12px;font-weight:700}
+  ]]></style>
+</defs>
+<rect width="1440" height="920" fill="url(#background)"/>
+<circle cx="180" cy="110" r="290" fill="url(#cyan-glow)"/>
+<circle cx="1290" cy="520" r="360" fill="url(#violet-glow)"/>
+<text class="mono kicker" x="56.0" y="38.0" text-anchor="start">MOONLIGHT / FINITE DESCENT</text>
+<text class="serif title" x="56.0" y="94.0" text-anchor="start">One section, three faithful projections</text>
+<text class="sans subtitle" x="57.0" y="127.0" text-anchor="start">Delaunay geometry → incidence category → path-sensitive flag nerve</text>
+<g transform="translate(56.0 151)">
+  <rect width="136" height="48" rx="13" fill="#0b1b20" stroke="#8bbeb2" stroke-opacity=".17"/>
+  <text class="sans metric-value" x="16.0" y="22.0" text-anchor="start">10</text>
+  <text class="mono metric-label" x="16.0" y="38.0" text-anchor="start">VERTICES</text>
+</g>
+<g transform="translate(212.0 151)">
+  <rect width="136" height="48" rx="13" fill="#0b1b20" stroke="#8bbeb2" stroke-opacity=".17"/>
+  <text class="sans metric-value" x="16.0" y="22.0" text-anchor="start">20</text>
+  <text class="mono metric-label" x="16.0" y="38.0" text-anchor="start">EDGES</text>
+</g>
+<g transform="translate(368.0 151)">
+  <rect width="136" height="48" rx="13" fill="#0b1b20" stroke="#8bbeb2" stroke-opacity=".17"/>
+  <text class="sans metric-value" x="16.0" y="22.0" text-anchor="start">11</text>
+  <text class="mono metric-label" x="16.0" y="38.0" text-anchor="start">FACES</text>
+</g>
+<g transform="translate(524.0 151)">
+  <rect width="136" height="48" rx="13" fill="#0b1b20" stroke="#8bbeb2" stroke-opacity=".17"/>
+  <text class="sans metric-value" x="16.0" y="22.0" text-anchor="start">41</text>
+  <text class="mono metric-label" x="16.0" y="38.0" text-anchor="start">OBJECTS</text>
+</g>
+<g transform="translate(680.0 151)">
+  <rect width="136" height="48" rx="13" fill="#0b1b20" stroke="#8bbeb2" stroke-opacity=".17"/>
+  <text class="sans metric-value" x="16.0" y="22.0" text-anchor="start">180</text>
+  <text class="mono metric-label" x="16.0" y="38.0" text-anchor="start">MORPHISMS</text>
+</g>
+<g transform="translate(856.0 151)">
+  <rect width="136" height="48" rx="13" fill="#0b1b20" stroke="#8bbeb2" stroke-opacity=".17"/>
+  <text class="sans metric-value" x="16.0" y="22.0" text-anchor="start">66</text>
+  <text class="mono metric-label" x="16.0" y="38.0" text-anchor="start">FLAGS</text>
+</g>
+<path d="M1040 163H1378" stroke="#72d6c2" stroke-opacity=".24"/>
+<text class="mono panel-note" x="1378.0" y="168.0" text-anchor="end">ONE HIGHLIGHTED FLAG GLUES ALL THREE PANELS</text>
+<rect class="panel" x="50.0" y="222" width="410" height="470" rx="22" filter="url(#soft-shadow)"/>
+<rect class="panel" x="515.0" y="222" width="410" height="470" rx="22" filter="url(#soft-shadow)"/>
+<rect class="panel" x="980.0" y="222" width="410" height="470" rx="22" filter="url(#soft-shadow)"/>
+<text class="mono panel-number" x="72.0" y="254.0" text-anchor="start">01</text>
+<text class="serif panel-title" x="72.0" y="282.0" text-anchor="start">Geometric section</text>
+<text class="sans panel-note" x="72.0" y="304.0" text-anchor="start">the admitted Delaunay cells</text>
+<path d="M70.0 314H440.0" stroke="#8bbeb2" stroke-opacity=".14"/>
+<rect x="70" y="326" width="370" height="330" rx="15" fill="url(#grid)"/>
+<polygon class="mesh-face selected" points="200.8,452.8 328.2,475.6 278.8,593.1"/>
+<polygon class="mesh-face" points="328.2,475.6 200.8,452.8 244.5,341.0"/>
+<polygon class="mesh-face" points="328.2,475.6 244.5,341.0 377.6,382.7"/>
+<polygon class="mesh-face" points="200.8,452.8 278.8,593.1 140.0,608.3"/>
+<polygon class="mesh-face" points="278.8,593.1 328.2,475.6 427.0,515.4"/>
+<polygon class="mesh-face" points="427.0,515.4 328.2,475.6 377.6,382.7"/>
+<polygon class="mesh-face" points="200.8,452.8 140.0,608.3 83.0,492.6"/>
+<polygon class="mesh-face" points="244.5,341.0 200.8,452.8 109.6,363.7"/>
+<polygon class="mesh-face" points="109.6,363.7 200.8,452.8 83.0,492.6"/>
+<polygon class="mesh-face" points="278.8,593.1 427.0,515.4 394.7,631.0"/>
+<polygon class="mesh-face" points="140.0,608.3 278.8,593.1 394.7,631.0"/>
+<line class="mesh-edge selected" x1="200.8" y1="452.8" x2="328.2" y2="475.6"/>
+<line class="mesh-edge" x1="200.8" y1="452.8" x2="278.8" y2="593.1"/>
+<line class="mesh-edge" x1="328.2" y1="475.6" x2="278.8" y2="593.1"/>
+<line class="mesh-edge" x1="328.2" y1="475.6" x2="244.5" y2="341.0"/>
+<line class="mesh-edge" x1="200.8" y1="452.8" x2="244.5" y2="341.0"/>
+<line class="mesh-edge" x1="328.2" y1="475.6" x2="377.6" y2="382.7"/>
+<line class="mesh-edge" x1="244.5" y1="341.0" x2="377.6" y2="382.7"/>
+<line class="mesh-edge" x1="200.8" y1="452.8" x2="140.0" y2="608.3"/>
+<line class="mesh-edge" x1="278.8" y1="593.1" x2="140.0" y2="608.3"/>
+<line class="mesh-edge" x1="278.8" y1="593.1" x2="427.0" y2="515.4"/>
+<line class="mesh-edge" x1="328.2" y1="475.6" x2="427.0" y2="515.4"/>
+<line class="mesh-edge" x1="427.0" y1="515.4" x2="377.6" y2="382.7"/>
+<line class="mesh-edge" x1="200.8" y1="452.8" x2="83.0" y2="492.6"/>
+<line class="mesh-edge" x1="140.0" y1="608.3" x2="83.0" y2="492.6"/>
+<line class="mesh-edge" x1="244.5" y1="341.0" x2="109.6" y2="363.7"/>
+<line class="mesh-edge" x1="200.8" y1="452.8" x2="109.6" y2="363.7"/>
+<line class="mesh-edge" x1="109.6" y1="363.7" x2="83.0" y2="492.6"/>
+<line class="mesh-edge" x1="278.8" y1="593.1" x2="394.7" y2="631.0"/>
+<line class="mesh-edge" x1="427.0" y1="515.4" x2="394.7" y2="631.0"/>
+<line class="mesh-edge" x1="140.0" y1="608.3" x2="394.7" y2="631.0"/>
+<circle class="mesh-vertex selected" cx="200.8" cy="452.8" r="7"/>
+<circle class="mesh-vertex" cx="328.2" cy="475.6" r="4.5"/>
+<circle class="mesh-vertex" cx="278.8" cy="593.1" r="4.5"/>
+<circle class="mesh-vertex" cx="244.5" cy="341.0" r="4.5"/>
+<circle class="mesh-vertex" cx="377.6" cy="382.7" r="4.5"/>
+<circle class="mesh-vertex" cx="140.0" cy="608.3" r="4.5"/>
+<circle class="mesh-vertex" cx="427.0" cy="515.4" r="4.5"/>
+<circle class="mesh-vertex" cx="83.0" cy="492.6" r="4.5"/>
+<circle class="mesh-vertex" cx="109.6" cy="363.7" r="4.5"/>
+<circle class="mesh-vertex" cx="394.7" cy="631.0" r="4.5"/>
+<text class="mono profile-value" x="279.3" y="497.2" text-anchor="start">f1</text>
+<text class="mono profile-value" x="274.5" y="454.2" text-anchor="start">e0</text>
+<text class="mono profile-value" x="210.8" y="442.8" text-anchor="start">v0</text>
+<text class="mono panel-number" x="537.0" y="254.0" text-anchor="start">02</text>
+<text class="serif panel-title" x="537.0" y="282.0" text-anchor="start">Incidence category</text>
+<text class="sans panel-note" x="537.0" y="304.0" text-anchor="start">one local section; no arrow thicket</text>
+<path d="M535.0 314H905.0" stroke="#8bbeb2" stroke-opacity=".14"/>
+<text class="mono panel-note" x="720.0" y="334.0" text-anchor="middle">SELECTED NONDEGENERATE CHAIN</text>
+<path d="M621 463H686" stroke="#72d6c2" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M754 463H817" stroke="#72d6c2" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M609 421C665 365 794 365 850 421" fill="none" stroke="#bc8cff" stroke-opacity=".68" stroke-width="1.6" stroke-dasharray="6 7" marker-end="url(#arrow)"/>
+<rect x="556" y="430" width="66" height="66" rx="14" fill="#ffad66" fill-opacity=".18" stroke="#ffad66" stroke-width="2"/>
+<rect x="696" y="439" width="48" height="48" transform="rotate(45 720 463)" fill="#72d6c2" fill-opacity=".16" stroke="#72d6c2" stroke-width="2"/>
+<circle cx="850" cy="463" r="31" fill="#f2e37e" fill-opacity=".14" stroke="#f2e37e" stroke-width="2"/>
+<text class="mono node-kind" x="589.0" y="407.0" text-anchor="middle">FACE OBJECT</text>
+<text class="sans node-label" x="589.0" y="471.0" text-anchor="middle">f1</text>
+<text class="mono node-kind" x="720.0" y="407.0" text-anchor="middle">EDGE OBJECT</text>
+<text class="sans node-label" x="720.0" y="471.0" text-anchor="middle">e0</text>
+<text class="mono node-kind" x="850.0" y="407.0" text-anchor="middle">VERTEX OBJECT</text>
+<text class="sans node-label" x="850.0" y="471.0" text-anchor="middle">v0</text>
+<text class="mono panel-note" x="720.0" y="535.0" text-anchor="middle">face → edge → vertex</text>
+<rect x="552" y="570" width="336" height="78" rx="14" fill="#071217" stroke="#bc8cff" stroke-opacity=".28"/>
+<text class="serif callout-title" x="720.0" y="602.0" text-anchor="middle">The intermediate edge survives.</text>
+<text class="sans panel-note" x="720.0" y="628.0" text-anchor="middle">Same endpoints, different paths, distinct flags.</text>
+<text class="mono panel-number" x="1002.0" y="254.0" text-anchor="start">03</text>
+<text class="serif panel-title" x="1002.0" y="282.0" text-anchor="start">Flag nerve</text>
+<text class="sans panel-note" x="1002.0" y="304.0" text-anchor="start">all 66 admitted two-simplices</text>
+<path d="M1000.0 314H1370.0" stroke="#8bbeb2" stroke-opacity=".14"/>
+<rect x="1000" y="326" width="370" height="330" rx="15" fill="url(#grid)"/>
+<polygon class="nerve-simplex selected" points="1199.3,507.2 1194.5,464.2 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1199.3,507.2 1194.5,464.2 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1199.3,507.2 1233.5,534.3 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1199.3,507.2 1233.5,534.3 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1199.3,507.2 1169.8,523.0 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1199.3,507.2 1169.8,523.0 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1187.9,423.1 1194.5,464.2 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1187.9,423.1 1194.5,464.2 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1187.9,423.1 1152.7,396.9 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1187.9,423.1 1152.7,396.9 1174.5,341.0"/>
+<polygon class="nerve-simplex" points="1187.9,423.1 1216.4,408.3 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1187.9,423.1 1216.4,408.3 1174.5,341.0"/>
+<polygon class="nerve-simplex" points="1246.8,399.8 1216.4,408.3 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1246.8,399.8 1216.4,408.3 1174.5,341.0"/>
+<polygon class="nerve-simplex" points="1246.8,399.8 1241.1,361.8 1174.5,341.0"/>
+<polygon class="nerve-simplex" points="1246.8,399.8 1241.1,361.8 1307.6,382.7"/>
+<polygon class="nerve-simplex" points="1246.8,399.8 1282.9,429.1 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1246.8,399.8 1282.9,429.1 1307.6,382.7"/>
+<polygon class="nerve-simplex" points="1136.5,551.4 1169.8,523.0 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1136.5,551.4 1169.8,523.0 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1136.5,551.4 1139.4,600.7 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1136.5,551.4 1139.4,600.7 1070.0,608.3"/>
+<polygon class="nerve-simplex" points="1136.5,551.4 1100.4,530.5 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1136.5,551.4 1100.4,530.5 1070.0,608.3"/>
+<polygon class="nerve-simplex" points="1274.6,528.0 1233.5,534.3 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1274.6,528.0 1233.5,534.3 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1274.6,528.0 1307.6,495.5 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1274.6,528.0 1307.6,495.5 1357.0,515.4"/>
+<polygon class="nerve-simplex" points="1274.6,528.0 1282.9,554.2 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1274.6,528.0 1282.9,554.2 1357.0,515.4"/>
+<polygon class="nerve-simplex" points="1307.6,457.9 1307.6,495.5 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1307.6,457.9 1307.6,495.5 1357.0,515.4"/>
+<polygon class="nerve-simplex" points="1307.6,457.9 1282.9,429.1 1258.2,475.6"/>
+<polygon class="nerve-simplex" points="1307.6,457.9 1282.9,429.1 1307.6,382.7"/>
+<polygon class="nerve-simplex" points="1307.6,457.9 1332.3,449.0 1357.0,515.4"/>
+<polygon class="nerve-simplex" points="1307.6,457.9 1332.3,449.0 1307.6,382.7"/>
+<polygon class="nerve-simplex" points="1071.3,517.9 1100.4,530.5 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1071.3,517.9 1100.4,530.5 1070.0,608.3"/>
+<polygon class="nerve-simplex" points="1071.3,517.9 1041.5,550.4 1070.0,608.3"/>
+<polygon class="nerve-simplex" points="1071.3,517.9 1041.5,550.4 1013.0,492.6"/>
+<polygon class="nerve-simplex" points="1071.3,517.9 1071.9,472.7 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1071.3,517.9 1071.9,472.7 1013.0,492.6"/>
+<polygon class="nerve-simplex" points="1115.0,385.9 1152.7,396.9 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1115.0,385.9 1152.7,396.9 1174.5,341.0"/>
+<polygon class="nerve-simplex" points="1115.0,385.9 1085.2,408.3 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1115.0,385.9 1085.2,408.3 1039.6,363.7"/>
+<polygon class="nerve-simplex" points="1115.0,385.9 1107.1,352.4 1174.5,341.0"/>
+<polygon class="nerve-simplex" points="1115.0,385.9 1107.1,352.4 1039.6,363.7"/>
+<polygon class="nerve-simplex" points="1061.1,436.4 1085.2,408.3 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1061.1,436.4 1085.2,408.3 1039.6,363.7"/>
+<polygon class="nerve-simplex" points="1061.1,436.4 1071.9,472.7 1130.8,452.8"/>
+<polygon class="nerve-simplex" points="1061.1,436.4 1071.9,472.7 1013.0,492.6"/>
+<polygon class="nerve-simplex" points="1061.1,436.4 1026.3,428.2 1039.6,363.7"/>
+<polygon class="nerve-simplex" points="1061.1,436.4 1026.3,428.2 1013.0,492.6"/>
+<polygon class="nerve-simplex" points="1296.8,579.8 1282.9,554.2 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1296.8,579.8 1282.9,554.2 1357.0,515.4"/>
+<polygon class="nerve-simplex" points="1296.8,579.8 1340.8,573.2 1357.0,515.4"/>
+<polygon class="nerve-simplex" points="1296.8,579.8 1340.8,573.2 1324.7,631.0"/>
+<polygon class="nerve-simplex" points="1296.8,579.8 1266.7,612.0 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1296.8,579.8 1266.7,612.0 1324.7,631.0"/>
+<polygon class="nerve-simplex" points="1201.2,610.8 1139.4,600.7 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1201.2,610.8 1139.4,600.7 1070.0,608.3"/>
+<polygon class="nerve-simplex" points="1201.2,610.8 1266.7,612.0 1208.8,593.1"/>
+<polygon class="nerve-simplex" points="1201.2,610.8 1266.7,612.0 1324.7,631.0"/>
+<polygon class="nerve-simplex" points="1201.2,610.8 1197.4,619.6 1070.0,608.3"/>
+<polygon class="nerve-simplex" points="1201.2,610.8 1197.4,619.6 1324.7,631.0"/>
+<circle class="object-vertex" cx="1130.8" cy="452.8" r="6.0" opacity="1" stroke="#fff" stroke-width="2"/>
+<circle class="object-vertex" cx="1258.2" cy="475.6" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1208.8" cy="593.1" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1174.5" cy="341.0" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1307.6" cy="382.7" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1070.0" cy="608.3" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1357.0" cy="515.4" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1013.0" cy="492.6" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1039.6" cy="363.7" r="3.4" opacity=".78"/>
+<circle class="object-vertex" cx="1324.7" cy="631.0" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1194.5" cy="464.2" r="6.0" opacity="1" stroke="#fff" stroke-width="2"/>
+<circle class="object-edge" cx="1169.8" cy="523.0" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1233.5" cy="534.3" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1216.4" cy="408.3" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1152.7" cy="396.9" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1282.9" cy="429.1" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1241.1" cy="361.8" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1100.4" cy="530.5" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1139.4" cy="600.7" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1282.9" cy="554.2" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1307.6" cy="495.5" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1332.3" cy="449.0" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1071.9" cy="472.7" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1041.5" cy="550.4" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1107.1" cy="352.4" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1085.2" cy="408.3" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1026.3" cy="428.2" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1266.7" cy="612.0" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1340.8" cy="573.2" r="3.4" opacity=".78"/>
+<circle class="object-edge" cx="1197.4" cy="619.6" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1199.3" cy="507.2" r="6.0" opacity="1" stroke="#fff" stroke-width="2"/>
+<circle class="object-face" cx="1187.9" cy="423.1" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1246.8" cy="399.8" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1136.5" cy="551.4" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1274.6" cy="528.0" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1307.6" cy="457.9" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1071.3" cy="517.9" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1115.0" cy="385.9" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1061.1" cy="436.4" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1296.8" cy="579.8" r="3.4" opacity=".78"/>
+<circle class="object-face" cx="1201.2" cy="610.8" r="3.4" opacity=".78"/>
+<text class="mono profile-value" x="1211.3" y="495.2" text-anchor="start">selected flag</text>
+<text class="mono panel-note" x="1352.0" y="642.0" text-anchor="end">simplex-0</text>
+<rect x="50" y="720" width="1340" height="156" rx="22" fill="#09171c" stroke="#8bbeb2" stroke-opacity=".20"/>
+<text class="mono kicker" x="76.0" y="752.0" text-anchor="start">NORMALIZATION PROFILE</text>
+<text class="serif panel-title" x="76.0" y="789.0" text-anchor="start">Identity insertions are cost, not geometry.</text>
+<text class="sans panel-note" x="76.0" y="817.0" text-anchor="start">Identity insertions swell dimension two to 385.</text>
+<rect x="76" y="838" width="12" height="4" rx="2" fill="#72d6c2"/>
+<text class="mono profile-label" x="96.0" y="845.0" text-anchor="start">NORMALIZED</text>
+<rect x="196" y="838" width="12" height="4" rx="2" fill="#bc8cff"/>
+<text class="mono profile-label" x="216.0" y="845.0" text-anchor="start">UNNORMALIZED</text>
+<text class="mono profile-label" x="590.0" y="775.0" text-anchor="end">DIM 0</text>
+<rect x="615" y="762.0" width="230" height="11" rx="5.5" fill="#13272d"/>
+<rect x="615" y="762.0" width="24.5" height="11" rx="5.5" fill="#72d6c2"/>
+<text class="mono profile-value" x="858.0" y="773.0" text-anchor="start">41</text>
+<rect x="965" y="762.0" width="310" height="11" rx="5.5" fill="#1d1830"/>
+<rect x="965" y="762.0" width="33.0" height="11" rx="5.5" fill="#bc8cff"/>
+<text class="mono profile-value" x="1288.0" y="773.0" text-anchor="start">41</text>
+<text class="mono profile-label" x="590.0" y="819.0" text-anchor="end">DIM 1</text>
+<rect x="615" y="806.0" width="230" height="11" rx="5.5" fill="#13272d"/>
+<rect x="615" y="806.0" width="83.0" height="11" rx="5.5" fill="#72d6c2"/>
+<text class="mono profile-value" x="858.0" y="817.0" text-anchor="start">139</text>
+<rect x="965" y="806.0" width="310" height="11" rx="5.5" fill="#1d1830"/>
+<rect x="965" y="806.0" width="144.9" height="11" rx="5.5" fill="#bc8cff"/>
+<text class="mono profile-value" x="1288.0" y="817.0" text-anchor="start">180</text>
+<text class="mono profile-label" x="590.0" y="863.0" text-anchor="end">DIM 2</text>
+<rect x="615" y="850.0" width="230" height="11" rx="5.5" fill="#13272d"/>
+<rect x="615" y="850.0" width="39.4" height="11" rx="5.5" fill="#72d6c2"/>
+<text class="mono profile-value" x="858.0" y="861.0" text-anchor="start">66</text>
+<rect x="965" y="850.0" width="310" height="11" rx="5.5" fill="#1d1830"/>
+<rect x="965" y="850.0" width="310.0" height="11" rx="5.5" fill="#bc8cff"/>
+<text class="mono profile-value" x="1288.0" y="861.0" text-anchor="start">385</text>
+</svg>

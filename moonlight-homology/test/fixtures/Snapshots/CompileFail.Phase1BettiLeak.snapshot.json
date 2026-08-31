@@ -1,0 +1,1 @@
+{"diagnostics":[{"code":"GHC-64725","endCol":23,"endLine":9,"file":"foundation/moonlight-homology/test/fixtures/CompileFail/Phase1BettiLeak.hs","startCol":3,"startLine":9}],"diagnosticsFlag":"-fdiagnostics-as-json","exit":"failure","fixture":"foundation/moonlight-homology/test/fixtures/CompileFail/Phase1BettiLeak.hs"}

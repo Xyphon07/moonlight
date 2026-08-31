@@ -1,0 +1,5 @@
+flush: inner 4, excluded 0
+notched: inner 5, excluded 1
+flush-plus-dangling-segment: inner 6, excluded 6
+notched-plus-dangling-segment: inner 7, excluded 7
+annulus: inner 10, excluded 2

@@ -1,0 +1,60 @@
+roots = [
+  '^Main\.main$',
+  '^Paths_.*'
+]
+
+# Every exposed non-Internal module is public API and therefore a root. The
+# exposed Internal modules exist only to connect the package's sublibrary tower;
+# their unreachable declarations remain subject to the gate.
+root-modules = [
+  '^Moonlight\.Hex\.Coordinate$',
+  '^Moonlight\.Hex\.Element$',
+  '^Moonlight\.Hex\.Region$',
+  '^Moonlight\.Hex\.Planar$',
+  '^Moonlight\.Hex\.Serialization$',
+  '^Moonlight\.Hex\.CellComplex$',
+  '^Moonlight\.Triangulation\.Scalar$',
+  '^Moonlight\.Triangulation\.LineSideInfo$',
+  '^Moonlight\.Triangulation\.Types$',
+  '^Moonlight\.Triangulation\.Math$',
+  '^Moonlight\.Triangulation\.Exact$',
+  '^Moonlight\.Triangulation\.CellSet$',
+  '^Moonlight\.Triangulation\.CellComplex$',
+  '^Moonlight\.Triangulation\.Zigzag$',
+  '^Moonlight\.Triangulation\.Region$',
+  '^Moonlight\.Triangulation\.Valuation$',
+  '^Moonlight\.Triangulation\.Interop$',
+  '^Moonlight\.Triangulation\.Dcel$',
+  '^Moonlight\.Triangulation\.Payload$',
+  '^Moonlight\.Triangulation\.JoinSemilattice$',
+  '^Moonlight\.Triangulation\.Handles\.HandleDefs$',
+  '^Moonlight\.Triangulation\.Handles\.Dynamic$',
+  '^Moonlight\.Triangulation\.Handles\.Iterators\.CircularIterator$',
+  '^Moonlight\.Triangulation\.Handles\.Iterators\.DynamicIterators$',
+  '^Moonlight\.Triangulation\.Handles\.Iterators\.FixedIterators$',
+  '^Moonlight\.Triangulation\.Handles\.Iterators\.HullIterator$',
+  '^Moonlight\.Triangulation\.PointLocation$',
+  '^Moonlight\.Triangulation\.Validation$',
+  '^Moonlight\.Triangulation\.FloodFillIterator$',
+  '^Moonlight\.Triangulation\.IntersectionIterator$',
+  '^Moonlight\.Triangulation\.BulkLoad$',
+  '^Moonlight\.Triangulation\.Removal$',
+  '^Moonlight\.Triangulation\.Session$',
+  '^Moonlight\.Triangulation\.Cdt$',
+  '^Moonlight\.Triangulation\.Minkowski$',
+  '^Moonlight\.Triangulation\.Overlay$',
+  '^Moonlight\.Triangulation\.Refinement$',
+  '^Moonlight\.Triangulation\.SetAlgebra$',
+  '^Moonlight\.Triangulation\.Parallel$',
+  '^Moonlight\.Triangulation\.Serialization$',
+  '^Moonlight\.Triangulation\.Voronoi$',
+  '^Moonlight\.Triangulation\.Voronoi\.Handles$',
+  '^Moonlight\.Triangulation\.Interpolation$',
+  '^Moonlight\.Triangulation\.HintGenerator$',
+  '^Moonlight\.Triangulation\.Foreign\.Exports$',
+  '^Moonlight\.Triangulation$'
+]
+
+root-instances = []
+type-class-roots = true
+unused-types = true

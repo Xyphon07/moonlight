@@ -1,0 +1,12 @@
+input-points 1000
+unique-points 1000
+duplicate-points 0
+seed-points 3
+sweep-fast-points 997
+sweep-skipped-points 0
+skipped-share 0.0%
+accounted 1000
+identity-holds True
+edge-flips 729
+hull-insertions 997
+legalization-max-stack 322
