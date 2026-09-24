@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Bounded axial layouts and native packed finite-set algebra.
 module Moonlight.Hex.Region
@@ -17,11 +18,17 @@ module Moonlight.Hex.Region
   , hexLayoutCoordAt
   , HexRegion
   , HexRegionObstruction (..)
+  , HexPackedRegionObstruction (..)
   , emptyHexRegion
   , fullHexRegion
   , singletonHexRegion
   , hexRegionFromCoords
+  , hexRegionFromPackedWords
   , hexRegionGenerate
+  , hexRegionGenerateM
+  , HexRowSpan
+  , hexRowSpan
+  , hexRegionGenerateRowSpans
   , hexRegionLayout
   , hexRegionMember
   , hexRegionCardinality
@@ -42,29 +49,38 @@ module Moonlight.Hex.Region
   ) where
 
 import Control.DeepSeq (NFData)
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Monad.ST (ST, runST)
-import Data.Bits ((.&.), (.|.), complement, countTrailingZeros, popCount, shiftL, shiftR, xor)
+import Data.Bits ((.&.), (.|.), complement, countTrailingZeros, popCount, shiftL, xor)
 import Data.Foldable (traverse_)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Maybe (isNothing)
 import Data.Vector (Vector)
 import Data.Vector qualified as Vector
 import Data.Vector.Unboxed qualified as U
 import Data.Vector.Unboxed.Mutable qualified as MU
 import Data.Word (Word64)
 import GHC.Generics (Generic)
-import Moonlight.Hex.Coordinate (HexCoord (..), HexDirection, hexStepCoord)
-
--- | A nonempty axial parallelogram with an overflow-safe dense row-major index.
-data HexLayout = HexLayout
-  { layoutOrigin :: !HexCoord
-  , layoutWidth :: !Int
-  , layoutHeight :: !Int
-  , layoutCellCount :: !Int
-  , layoutWordCount :: !Int
-  }
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData)
+import Moonlight.Hex.Coordinate
+  ( HexCoord (..)
+  , HexDirection
+  , hexStepCoord
+  )
+import Moonlight.Hex.Region.Internal
+  ( HexLayout (..)
+  , HexRegion (..)
+  , extractBits
+  , finalWordMask
+  , firstSameLayoutDifferenceIndex
+  , generateHexRegionIndexed
+  , generateHexRegionIndexedM
+  , hexCoordAtIndex
+  , hexCoordIndex
+  , hexRegionMemberAtIndex
+  , lowBitMask
+  , setBitAt
+  )
 
 data HexLayoutObstruction
   = HexLayoutWidthNotPositive !Int
@@ -128,15 +144,20 @@ hexLayoutCoordAt layout index
   | otherwise = Just (hexCoordAtIndex layout index)
 {-# INLINE hexLayoutCoordAt #-}
 
--- | Canonical packed membership: one bit per layout cell and zero padding.
-data HexRegion = HexRegion !HexLayout !(U.Vector Word64)
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (NFData)
-
 data HexRegionObstruction
   = HexRegionCoordinateOutsideLayout !HexLayout !HexCoord
   | HexRegionLayoutMismatch !HexLayout !HexLayout
   | HexRegionRestrictionOutsideLayout !HexLayout !HexLayout
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (NFData)
+
+-- | A rejected packed representation. Word count and zero padding are the
+-- complete representation invariant; admitted vectors are retained without a
+-- copy.
+data HexPackedRegionObstruction
+  -- | Expected word count, then observed word count.
+  = HexPackedRegionWordCountMismatch !Int !Int
+  | HexPackedRegionNonCanonicalPadding !Word64
   deriving stock (Eq, Show, Generic)
   deriving anyclass (NFData)
 
@@ -181,36 +202,94 @@ hexRegionFromCoords layout coordinates = runST $ do
         let (wordIndex, bitIndex) = cellIndex `quotRem` 64
          in MU.modify mutableWords (`setBitAt` bitIndex) wordIndex
 
+hexRegionFromPackedWords
+  :: HexLayout
+  -> U.Vector Word64
+  -> Either HexPackedRegionObstruction HexRegion
+hexRegionFromPackedWords layout wordsValue
+  | actualWordCount /= expectedWordCount =
+      Left (HexPackedRegionWordCountMismatch expectedWordCount actualWordCount)
+  | nonCanonicalPadding /= 0 =
+      Left (HexPackedRegionNonCanonicalPadding nonCanonicalPadding)
+  | otherwise = Right (HexRegion layout wordsValue)
+ where
+  expectedWordCount = layoutWordCount layout
+  actualWordCount = U.length wordsValue
+  nonCanonicalPadding =
+    (wordsValue `U.unsafeIndex` (expectedWordCount - 1))
+      .&. complement (finalWordMask layout)
+
 -- | Generate membership directly into packed words. This is the total bulk
 -- authoring path when membership is already a function rather than a sparse
 -- coordinate collection.
 hexRegionGenerate :: HexLayout -> (HexCoord -> Bool) -> HexRegion
 hexRegionGenerate layout predicate =
-  HexRegion layout (U.generate (layoutWordCount layout) generateWord)
- where
-  generateWord wordIndex =
-    let baseIndex = wordIndex * 64
-        bitCount = min 64 (layoutCellCount layout - baseIndex)
-     in gatherBits baseIndex bitCount 0 0
-
-  gatherBits !baseIndex !bitCount !bitIndex !word
-    | bitIndex >= bitCount = word
-    | predicate (hexCoordAtIndex layout (baseIndex + bitIndex)) =
-        gatherBits baseIndex bitCount (bitIndex + 1) (setBitAt word bitIndex)
-    | otherwise = gatherBits baseIndex bitCount (bitIndex + 1) word
+  generateHexRegionIndexed layout (predicate . hexCoordAtIndex layout)
 {-# INLINE hexRegionGenerate #-}
+
+-- | A nonempty closed interval of global axial q coordinates. Row ownership
+-- comes from 'hexRegionGenerateRowSpans'; arbitrary-size endpoints are clipped
+-- to its admitted layout before conversion to resident indices.
+data HexRowSpan = HexRowSpan !Integer !Integer
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving anyclass (NFData)
+
+hexRowSpan :: Integer -> Integer -> Maybe HexRowSpan
+hexRowSpan firstQ finalQ
+  | firstQ <= finalQ = Just (HexRowSpan firstQ finalQ)
+  | otherwise = Nothing
+
+-- | Generate a packed section from closed q spans at each global axial row.
+-- Spans may overlap or extend beyond the layout: their clipped union is the
+-- result. Each span contributes whole word masks, never one predicate call
+-- per interior cell. The existing layout index and mask owners alone lower
+-- coordinates to bits, and clipping establishes canonical zero padding.
+hexRegionGenerateRowSpans :: HexLayout -> (Int -> [HexRowSpan]) -> HexRegion
+hexRegionGenerateRowSpans layout spansAtRow =
+  HexRegion layout
+    ( U.accum (.|.) (U.replicate (layoutWordCount layout) 0)
+        [ (wordIndex, lowBitMask bitCount `shiftL` firstBit)
+        | localRow <- [0 .. layoutHeight layout - 1]
+        , let row = originR + localRow
+        , HexRowSpan firstQ finalQ <- spansAtRow row
+        , let clippedFirst = max minimumQ firstQ
+        , let clippedFinal = min maximumQ finalQ
+        , clippedFirst <= clippedFinal
+        , Just firstIndex <- [hexCoordIndex layout (HexCoord (fromInteger clippedFirst) row)]
+        , Just finalIndex <- [hexCoordIndex layout (HexCoord (fromInteger clippedFinal) row)]
+        , wordIndex <- [firstIndex `quot` 64 .. finalIndex `quot` 64]
+        , let wordBase = wordIndex * 64
+        , let firstBit = max 0 (firstIndex - wordBase)
+        , let finalBit = min 63 (finalIndex - wordBase)
+        , let bitCount = finalBit - firstBit + 1
+        ]
+    )
+ where
+  HexCoord originQ originR = layoutOrigin layout
+  minimumQ = toInteger originQ
+  maximumQ = minimumQ + toInteger (layoutWidth layout) - 1
+
+-- | Generate canonical packed membership while accumulating one caller-owned
+-- effect. Predicate refusal is preserved directly; packed admission cannot
+-- fail because this constructor owns every emitted bit, including padding.
+hexRegionGenerateM
+  :: Monad effect
+  => HexLayout
+  -> (HexCoord -> effect Bool)
+  -> effect HexRegion
+hexRegionGenerateM layout predicate =
+  generateHexRegionIndexedM layout (predicate . hexCoordAtIndex layout)
+{-# INLINE hexRegionGenerateM #-}
 
 hexRegionLayout :: HexRegion -> HexLayout
 hexRegionLayout (HexRegion layout _) = layout
 {-# INLINE hexRegionLayout #-}
 
 hexRegionMember :: HexCoord -> HexRegion -> Bool
-hexRegionMember coordinate (HexRegion layout wordsValue) =
+hexRegionMember coordinate region@(HexRegion layout _) =
   case hexCoordIndex layout coordinate of
     Nothing -> False
-    Just cellIndex ->
-      let (wordIndex, bitIndex) = cellIndex `quotRem` 64
-       in wordsValue `U.unsafeIndex` wordIndex .&. (1 `shiftL` bitIndex) /= 0
+    Just cellIndex -> hexRegionMemberAtIndex region cellIndex
 {-# INLINE hexRegionMember #-}
 
 hexRegionCardinality :: HexRegion -> Int
@@ -290,16 +369,10 @@ complementHexRegion (HexRegion layout wordsValue) =
 hexRegionSubsetOf :: HexRegion -> HexRegion -> Either HexRegionObstruction Bool
 hexRegionSubsetOf (HexRegion leftLayout leftWords) (HexRegion rightLayout rightWords)
   | leftLayout /= rightLayout = Left (HexRegionLayoutMismatch leftLayout rightLayout)
-  | otherwise =
-      Right
-        ( U.ifoldl'
-            (\isSubset index leftWord ->
-                isSubset
-                  && leftWord .&. complement (rightWords `U.unsafeIndex` index) == 0
-            )
-            True
-            leftWords
-        )
+  | otherwise = Right (isNothing (firstSameLayoutDifferenceIndex left right))
+ where
+  left = HexRegion leftLayout leftWords
+  right = HexRegion rightLayout rightWords
 
 restrictHexRegion :: HexLayout -> HexRegion -> Either HexRegionObstruction HexRegion
 restrictHexRegion target source
@@ -324,7 +397,9 @@ data HexGluingObstruction
   deriving anyclass (NFData)
 
 -- | Glue local sections only when their truth values agree on every overlap.
--- This is deliberately distinct from set union.
+-- This is deliberately distinct from set union. Space is mostly unglued;
+-- stars are the rare places where enough local sections agreed to make a
+-- global one and lit up from the sheer relief of consistency.
 glueCompatibleHexRegions :: NonEmpty HexRegion -> Either HexGluingObstruction HexRegion
 glueCompatibleHexRegions regions = do
   target <- boundingLayout regions
@@ -339,15 +414,15 @@ glueCompatibleHexRegions regions = do
             (layoutWordCount target)
             (reframedCoverageWord target (hexRegionLayout firstRegion))
         )
-    obstruction <-
-      descendHexSections
-        target
-        mutableValues
-        mutableCoverage
-        remainingRegions
-    case obstruction of
-      Just coordinate -> pure (Left (HexOverlapDisagreement coordinate))
-      Nothing -> Right . HexRegion target <$> U.unsafeFreeze mutableValues
+    admitted <-
+      runExceptT
+        ( traverse_
+            (descendHexSection target mutableValues mutableCoverage)
+            remainingRegions
+        )
+    case admitted of
+      Left coordinate -> pure (Left (HexOverlapDisagreement coordinate))
+      Right () -> Right . HexRegion target <$> U.unsafeFreeze mutableValues
 
 hexNeighbourCoord :: HexLayout -> HexCoord -> HexDirection -> Maybe HexCoord
 hexNeighbourCoord layout coordinate direction =
@@ -367,44 +442,57 @@ combineHexRegionsWith combine (HexRegion leftLayout leftWords) (HexRegion rightL
   | otherwise = Right (HexRegion leftLayout (U.zipWith combine leftWords rightWords))
 {-# INLINE combineHexRegionsWith #-}
 
-descendHexSections
-  :: HexLayout
-  -> MU.MVector s Word64
-  -> MU.MVector s Word64
-  -> [HexRegion]
-  -> ST s (Maybe HexCoord)
-descendHexSections _ _ _ [] = pure Nothing
-descendHexSections target mutableValues mutableCoverage (local : remaining) = do
-  obstruction <- descendHexSection target mutableValues mutableCoverage local 0
-  case obstruction of
-    Just coordinate -> pure (Just coordinate)
-    Nothing -> descendHexSections target mutableValues mutableCoverage remaining
-
 descendHexSection
-  :: HexLayout
+  :: forall s. HexLayout
   -> MU.MVector s Word64
   -> MU.MVector s Word64
   -> HexRegion
-  -> Int
-  -> ST s (Maybe HexCoord)
-descendHexSection target mutableValues mutableCoverage local !wordIndex
-  | wordIndex >= layoutWordCount target = pure Nothing
-  | otherwise = do
-      values <- MU.unsafeRead mutableValues wordIndex
-      coverage <- MU.unsafeRead mutableCoverage wordIndex
-      let localValues = reframedWord target local wordIndex
-          localCoverage = reframedCoverageWord target (hexRegionLayout local) wordIndex
-          disagreement = (values `xor` localValues) .&. coverage .&. localCoverage
-      if disagreement == 0
-        then do
-          MU.unsafeWrite mutableValues wordIndex (values .|. localValues)
-          MU.unsafeWrite mutableCoverage wordIndex (coverage .|. localCoverage)
-          descendHexSection target mutableValues mutableCoverage local (wordIndex + 1)
-        else
-          pure
-            ( Just
-                (hexCoordAtIndex target (wordIndex * 64 + countTrailingZeros disagreement))
-            )
+  -> ExceptT HexCoord (ST s) ()
+descendHexSection target mutableValues mutableCoverage local =
+  traverse_
+    (\(firstWord, finalWord) -> descendHexWordSpan firstWord finalWord)
+    (localTargetWordSpans target (hexRegionLayout local))
+ where
+  descendHexWordSpan :: Int -> Int -> ExceptT HexCoord (ST s) ()
+  descendHexWordSpan !wordIndex !finalWord
+    | wordIndex > finalWord = pure ()
+    | otherwise = do
+        values <- lift (MU.unsafeRead mutableValues wordIndex)
+        coverage <- lift (MU.unsafeRead mutableCoverage wordIndex)
+        let localValues = reframedWord target local wordIndex
+            localCoverage = reframedCoverageWord target (hexRegionLayout local) wordIndex
+            disagreement = (values `xor` localValues) .&. coverage .&. localCoverage
+        if disagreement == 0
+          then do
+            lift (MU.unsafeWrite mutableValues wordIndex (values .|. localValues))
+            lift (MU.unsafeWrite mutableCoverage wordIndex (coverage .|. localCoverage))
+            descendHexWordSpan (wordIndex + 1) finalWord
+          else
+            throwE
+              (hexCoordAtIndex target (wordIndex * 64 + countTrailingZeros disagreement))
+
+localTargetWordSpans :: HexLayout -> HexLayout -> [(Int, Int)]
+localTargetWordSpans target local =
+  foldr mergeWordSpan [] (fmap rowWordSpan [0 .. layoutHeight local - 1])
+ where
+  HexCoord targetQ targetR = layoutOrigin target
+  HexCoord localQ localR = layoutOrigin local
+  targetColumn = localQ - targetQ
+  firstTargetRow = localR - targetR
+
+  rowWordSpan :: Int -> (Int, Int)
+  rowWordSpan localRow =
+    let firstCell =
+          (firstTargetRow + localRow) * layoutWidth target + targetColumn
+        finalCell = firstCell + layoutWidth local - 1
+     in (firstCell `quot` 64, finalCell `quot` 64)
+
+  mergeWordSpan :: (Int, Int) -> [(Int, Int)] -> [(Int, Int)]
+  mergeWordSpan wordSpan [] = [wordSpan]
+  mergeWordSpan wordSpan@(firstWord, finalWord) ((nextFirstWord, nextFinalWord) : remaining)
+    | nextFirstWord <= finalWord + 1 =
+        (firstWord, max finalWord nextFinalWord) : remaining
+    | otherwise = wordSpan : (nextFirstWord, nextFinalWord) : remaining
 
 boundingLayout :: NonEmpty HexRegion -> Either HexGluingObstruction HexLayout
 boundingLayout regions =
@@ -473,37 +561,6 @@ reframedSourceWord target source extract wordIndex =
               (accumulator .|. copied)
 {-# INLINE reframedSourceWord #-}
 
-extractBits :: U.Vector Word64 -> Int -> Int -> Word64
-extractBits wordsValue bitIndex count
-  | count <= 0 = 0
-  | otherwise =
-      let (wordIndex, bitOffset) = bitIndex `quotRem` 64
-          low = wordsValue `U.unsafeIndex` wordIndex `shiftR` bitOffset
-          high =
-            if bitOffset == 0 || bitOffset + count <= 64
-              then 0
-              else wordsValue `U.unsafeIndex` (wordIndex + 1) `shiftL` (64 - bitOffset)
-       in (low .|. high) .&. lowBitMask count
-{-# INLINE extractBits #-}
-
-hexCoordIndex :: HexLayout -> HexCoord -> Maybe Int
-hexCoordIndex layout (HexCoord q r)
-  | q < originQ || r < originR = Nothing
-  | q > maximumQ || r > maximumR = Nothing
-  | otherwise = Just ((r - originR) * layoutWidth layout + (q - originQ))
- where
-  HexCoord originQ originR = layoutOrigin layout
-  maximumQ = originQ + layoutWidth layout - 1
-  maximumR = originR + layoutHeight layout - 1
-{-# INLINE hexCoordIndex #-}
-
-hexCoordAtIndex :: HexLayout -> Int -> HexCoord
-hexCoordAtIndex layout index =
-  let (row, column) = index `quotRem` layoutWidth layout
-      HexCoord originQ originR = layoutOrigin layout
-   in HexCoord (originQ + column) (originR + row)
-{-# INLINE hexCoordAtIndex #-}
-
 coordinateRangeFits :: HexCoord -> Int -> Int -> Bool
 coordinateRangeFits (HexCoord originQ originR) width height =
   let maximumQ = toInteger originQ + toInteger width - 1
@@ -528,22 +585,6 @@ layoutMaximumQ layout =
 layoutMaximumR :: HexLayout -> Integer
 layoutMaximumR layout =
   toInteger (hexR (layoutOrigin layout)) + toInteger (layoutHeight layout) - 1
-
-finalWordMask :: HexLayout -> Word64
-finalWordMask layout =
-  lowBitMask (((layoutCellCount layout - 1) `rem` 64) + 1)
-{-# INLINE finalWordMask #-}
-
-lowBitMask :: Int -> Word64
-lowBitMask count
-  | count >= 64 = maxBound
-  | count <= 0 = 0
-  | otherwise = (1 `shiftL` count) - 1
-{-# INLINE lowBitMask #-}
-
-setBitAt :: Word64 -> Int -> Word64
-setBitAt word bitIndex = word .|. (1 `shiftL` bitIndex)
-{-# INLINE setBitAt #-}
 
 integerToInt :: Integer -> Maybe Int
 integerToInt value

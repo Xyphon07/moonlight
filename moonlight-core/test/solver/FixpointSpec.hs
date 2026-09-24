@@ -32,7 +32,9 @@ import Data.IntMap.Strict qualified as IntMap
 import Data.Vector qualified as Vector
 import Data.Vector.Unboxed qualified as UVector
 import Moonlight.Core
-  ( Edge (..),
+  ( CsrAdmissionError (..),
+    Edge (..),
+    csrFromPackedRows,
     csrFromRows,
     csrOffsets,
     csrTargets,
@@ -208,6 +210,34 @@ tests =
       testCase "CSR construction deduplicates and sorts row targets" $
         let csr = csrFromRows 1 [[3, 1, 3, 2]]
          in csrTargets csr @?= UVector.fromList [1, 2, 3],
+      testCase "packed CSR admits rectangular targets and empty rows unchanged" $
+        let offsets = UVector.fromList [0, 2, 2, 3]
+            targets = UVector.fromList [-1, 9, 100]
+         in fmap (\csr -> (csrOffsets csr, csrTargets csr)) (csrFromPackedRows 3 offsets targets)
+              @?= Right (offsets, targets),
+      testCase "packed CSR agrees with normalized row construction" $
+        let rows = [[1, 9], [], [0, 5, 99]]
+         in csrFromPackedRows 3 (UVector.fromList [0, 2, 2, 5]) (UVector.fromList (concat rows))
+              @?= Right (csrFromRows 3 rows),
+      testCase "packed CSR admits zero rows and isolated rows" $ do
+        csrFromPackedRows 0 (UVector.singleton 0) UVector.empty @?= Right (csrFromRows 0 [])
+        csrFromPackedRows 2 (UVector.fromList [0, 0, 0]) UVector.empty @?= Right (csrFromRows 2 []),
+      testCase "packed CSR rejects malformed row counts without overflow" $ do
+        csrFromPackedRows (-1) UVector.empty UVector.empty @?= Left (CsrNegativeRowCount (-1))
+        csrFromPackedRows 0 UVector.empty UVector.empty @?= Left (CsrOffsetCountMismatch 0 0)
+        csrFromPackedRows 1 (UVector.fromList [0, 0, 0]) UVector.empty @?= Left (CsrOffsetCountMismatch 1 3)
+        csrFromPackedRows maxBound UVector.empty UVector.empty @?= Left (CsrOffsetCountMismatch maxBound 0),
+      testCase "packed CSR rejects invalid offsets before slicing" $ do
+        csrFromPackedRows 1 (UVector.fromList [1, 1]) (UVector.singleton 0) @?= Left (CsrInitialOffsetNonzero 1)
+        csrFromPackedRows 1 (UVector.fromList [-1, 0]) UVector.empty @?= Left (CsrInitialOffsetNonzero (-1))
+        csrFromPackedRows 2 (UVector.fromList [0, 2, 1]) (UVector.singleton 0) @?= Left (CsrDecreasingOffset 2 2 1)
+        csrFromPackedRows 1 (UVector.fromList [0, -1]) UVector.empty @?= Left (CsrDecreasingOffset 1 0 (-1))
+        csrFromPackedRows 1 (UVector.fromList [0, 2]) (UVector.singleton 0) @?= Left (CsrFinalOffsetMismatch 2 1)
+        csrFromPackedRows 1 (UVector.fromList [0, 0]) (UVector.singleton 0) @?= Left (CsrFinalOffsetMismatch 0 1),
+      testCase "packed CSR rejects duplicate or descending targets only within a row" $ do
+        csrFromPackedRows 1 (UVector.fromList [0, 2]) (UVector.fromList [3, 3]) @?= Left (CsrNonascendingRowTargets 0 3 3)
+        csrFromPackedRows 2 (UVector.fromList [0, 0, 2]) (UVector.fromList [3, 2]) @?= Left (CsrNonascendingRowTargets 1 3 2)
+        csrFromPackedRows 2 (UVector.fromList [0, 1, 2]) (UVector.fromList [3, 3]) @?= Right (csrFromRows 2 [[3], [3]]),
       testCase "CSR transpose reverses every edge and retains isolated vertices" $
         let transposed =
               csrTranspose

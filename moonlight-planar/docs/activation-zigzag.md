@@ -1,6 +1,6 @@
 # Activation zigzag persistence
 
-Use `Moonlight.Triangulation.Zigzag` when independently observed activation
+Use `Moonlight.Planar.Zigzag` when independently observed activation
 point clouds do not form a monotone filtration. Each point carries a stable
 label, each depth carries its own coordinates and exact squared-radius alpha
 threshold, and adjacent observations meet through the canonical cospan
@@ -38,7 +38,7 @@ labelled cells.
 diagram or changing degree and multiplicity.
 
 The compile-checked
-[`squareLoopAcrossDepths`](./examples/Moonlight/Triangulation/Example/ActivationZigzag.hs)
+[`squareLoopAcrossDepths`](./examples/Moonlight/Planar/Example/ActivationZigzag.hs)
 example observes a square before its boundary appears, while it carries one
 loop, and after its Delaunay faces fill that loop. Its degree-one result is:
 

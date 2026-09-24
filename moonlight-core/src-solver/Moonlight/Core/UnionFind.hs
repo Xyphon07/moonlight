@@ -28,6 +28,7 @@ import Data.IntMap.Strict
   )
 import Data.IntMap.Strict qualified as IntMap
 import Data.IntSet qualified as IntSet
+import Data.Vector.Unboxed qualified as Vector
 import Moonlight.Core.Identifier.EGraph
   ( ClassId (..),
     classIdKey,
@@ -43,21 +44,28 @@ import Moonlight.Core.UnionFind.Internal.Types
     allocateNextClassId,
   )
 import Moonlight.Core.UnionFind.Transaction qualified as Transaction
+import Moonlight.Core.UnionFind.Transaction.Internal.Policy
+  ( chooseDenseLength,
+    densePrefixMap,
+  )
+import Moonlight.Core.UnionFind.Transaction.Internal.Lifecycle
+  ( runCompressedUnionFindTransaction,
+  )
 import Prelude
-  ( Bool,
+  ( Bool (..),
     Eq ((==)),
     Foldable,
     Either,
     Int,
     Maybe (..),
     fmap,
+    id,
     min,
     otherwise,
     pure,
     snd,
     toInteger,
     (+),
-    (.),
     (>=),
   )
 
@@ -66,24 +74,27 @@ emptyUnionFind =
   UnionFind
     { ufParent = IntMap.empty,
       ufRank = IntMap.empty,
+      ufDenseCanonicalRoots = Vector.empty,
       ufNextFresh = 0
     }
 
 fromClassIds :: Foldable t => t ClassId -> UnionFind
 fromClassIds classIds =
-  UnionFind
-    { ufParent = IntMap.fromSet ClassId classKeys,
-      -- Rank zero is the semantic default. Materializing one zero per class
-      -- only duplicates that law and makes every insertion update two trees.
-      ufRank = IntMap.empty,
-      ufNextFresh =
-        case IntSet.lookupMax classKeys of
-          Just greatestKey
-            | greatestKey >= 0 ->
-                toInteger greatestKey + 1
-          _ ->
-            0
-    }
+  populateDenseCanonicalRoots
+    UnionFind
+      { ufParent = IntMap.fromSet ClassId classKeys,
+        -- Rank zero is the semantic default. Materializing one zero per class
+        -- only duplicates that law and makes every insertion update two trees.
+        ufRank = IntMap.empty,
+        ufDenseCanonicalRoots = Vector.empty,
+        ufNextFresh =
+          case IntSet.lookupMax classKeys of
+            Just greatestKey
+              | greatestKey >= 0 ->
+                  toInteger greatestKey + 1
+            _ ->
+              0
+      }
   where
     classKeys =
       IntSet.fromList (fmap classIdKey (Foldable.toList classIds))
@@ -100,8 +111,12 @@ insertClassId classId unionFind =
             }
 
 member :: ClassId -> UnionFind -> Bool
-member classId =
-  IntMap.member (classIdKey classId) . ufParent
+member classId unionFind =
+  withDenseCanonicalRoot
+    unionFind
+    (classIdKey classId)
+    (IntMap.member (classIdKey classId) (ufParent unionFind))
+    (\_ -> True)
 
 makeSet :: UnionFind -> Either UnionFindAllocationError (ClassId, UnionFind)
 makeSet unionFind = do
@@ -117,11 +132,16 @@ makeSet unionFind = do
 
 find :: ClassId -> UnionFind -> (ClassId, UnionFind)
 find classId unionFind =
-  let (rootKey, compressedParents) =
-        compressRootKey (ufParent unionFind) (classIdKey classId)
-   in ( ClassId rootKey,
-        unionFind {ufParent = compressedParents}
-      )
+  withDenseCanonicalRoot
+    unionFind
+    (classIdKey classId)
+    ( let (rootKey, compressedParents) =
+            compressRootKey (ufParent unionFind) (classIdKey classId)
+       in ( ClassId rootKey,
+            unionFind {ufParent = compressedParents}
+          )
+    )
+    (\rootKey -> (ClassId rootKey, unionFind))
 
 findExisting :: ClassId -> UnionFind -> Maybe (ClassId, UnionFind)
 findExisting classId unionFind =
@@ -131,17 +151,22 @@ findExisting classId unionFind =
 
 canonicalClass :: ClassId -> UnionFind -> Maybe ClassId
 canonicalClass classId unionFind =
-  case IntMap.lookup key (ufParent unionFind) of
-    Nothing ->
-      Nothing
-    Just parentClassId ->
-      Just
-        ( ClassId
-            ( if classIdKey parentClassId == key
-                then key
-                else rootKeyOf unionFind (classIdKey parentClassId)
+  withDenseCanonicalRoot
+    unionFind
+    key
+    ( case IntMap.lookup key (ufParent unionFind) of
+        Nothing ->
+          Nothing
+        Just parentClassId ->
+          Just
+            ( ClassId
+                ( if classIdKey parentClassId == key
+                    then key
+                    else rootKeyOf unionFind (classIdKey parentClassId)
+                )
             )
-        )
+    )
+    (\rootKey -> Just (ClassId rootKey))
   where
     key = classIdKey classId
 {-# INLINE canonicalClass #-}
@@ -215,18 +240,58 @@ partitionProjection unionFind =
       IntMap.findWithDefault rootClass (classIdKey rootClass) classMinima
 
 canonicalMapAndCompress :: UnionFind -> (IntMap ClassId, UnionFind)
-canonicalMapAndCompress unionFind =
-  Transaction.runUnionFindTransaction unionFind Transaction.transactionCanonicalMapAndCompress
+canonicalMapAndCompress unionFind
+  | Vector.null (ufDenseCanonicalRoots unionFind) =
+      runCompressedUnionFindTransaction
+        unionFind
+        Transaction.transactionCanonicalMapAndCompress
+  | otherwise = (canonicalMap unionFind, unionFind)
 
 -- | Flatten every parent chain to its root, returning the compressed
 -- structure.
 compress :: UnionFind -> UnionFind
-compress unionFind =
-  snd (Transaction.runUnionFindTransaction unionFind Transaction.transactionCompress)
+compress unionFind
+  | Vector.null (ufDenseCanonicalRoots unionFind) =
+      snd
+        ( runCompressedUnionFindTransaction
+            unionFind
+            Transaction.transactionCompress
+        )
+  | otherwise = unionFind
 
 parentKeyOf :: UnionFind -> Int -> Maybe Int
 parentKeyOf unionFind key =
   fmap classIdKey (IntMap.lookup key (ufParent unionFind))
+
+withDenseCanonicalRoot ::
+  UnionFind ->
+  Int ->
+  result ->
+  (Int -> result) ->
+  result
+withDenseCanonicalRoot unionFind key missing present =
+  case ufDenseCanonicalRoots unionFind Vector.!? key of
+    Nothing -> missing
+    Just rootKey -> present rootKey
+{-# INLINE withDenseCanonicalRoot #-}
+
+-- | Materialize a contiguous leading prefix within the policy-approved window.
+-- Callers establish a flat parent map, so cached values are final roots.
+populateDenseCanonicalRoots :: UnionFind -> UnionFind
+populateDenseCanonicalRoots unionFind
+  | Vector.null (ufDenseCanonicalRoots unionFind) =
+      let denseLength = chooseDenseLength (ufParent unionFind)
+          denseParents = densePrefixMap denseLength (ufParent unionFind)
+       in case (IntMap.lookupMin denseParents, IntMap.lookupMax denseParents) of
+            (Just (0, _), Just (greatestKey, _))
+              | greatestKey + 1 == IntMap.size denseParents ->
+                  unionFind
+                    { ufDenseCanonicalRoots =
+                        Vector.fromList (fmap classIdKey (IntMap.elems denseParents))
+                    }
+            _ -> unionFind
+  | otherwise = unionFind
+{-# INLINE populateDenseCanonicalRoots #-}
 
 rankOf :: ClassId -> UnionFind -> Int
 rankOf classId unionFind =
@@ -234,14 +299,19 @@ rankOf classId unionFind =
 
 rootKeyOf :: UnionFind -> Int -> Int
 rootKeyOf unionFind key =
-  case parentKeyOf unionFind key of
-    Nothing ->
-      key
-    Just parentKey
-      | parentKey == key ->
+  withDenseCanonicalRoot
+    unionFind
+    key
+    ( case parentKeyOf unionFind key of
+        Nothing ->
           key
-      | otherwise ->
-          rootKeyOf unionFind parentKey
+        Just parentKey
+          | parentKey == key ->
+              key
+          | otherwise ->
+              rootKeyOf unionFind parentKey
+    )
+    id
 {-# INLINE rootKeyOf #-}
 
 compressRootKey :: IntMap ClassId -> Int -> (Int, IntMap ClassId)
@@ -279,5 +349,6 @@ setParent childClassId parentClassId unionFind =
         IntMap.insert
           (classIdKey childClassId)
           parentClassId
-          (ufParent unionFind)
+          (ufParent unionFind),
+      ufDenseCanonicalRoots = Vector.empty
     }

@@ -1,6 +1,6 @@
 module Main (main) where
 
-import qualified Moonlight.Triangulation.DcelBench as DcelBench
+import qualified Moonlight.Planar.DcelBench as DcelBench
 
 main :: IO ()
 main = DcelBench.benchmarks

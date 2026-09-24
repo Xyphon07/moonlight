@@ -98,7 +98,7 @@ without minting a timing claim:
 - `divergence-hs.txt` / `divergence-rs.txt` — intentional domain distinction.
 - `stats-hs` — Moonlight-only diagnostic counters.
 
-`Moonlight.Triangulation.Bench.SpadeCompare.Lane` is the sole owner of lane
+`Moonlight.Planar.Bench.SpadeCompare.Lane` is the sole owner of lane
 class, operation, size, order, display label, and snapshot/session relation.
 Shell consumes its execution projection; `scorecard.py` consumes its report
 projection and rejects a run whose declared inventory or observations fail to
@@ -139,7 +139,7 @@ still compiles only Spade. After building both diagnostic interpreters, one
 semantic or timing observation is:
 
 ```console
-ALPHA_HS_BIN="$(cabal list-bin moonlight-triangulation:exe:moonlight-triangulation-alpha-spade-referent)"
+ALPHA_HS_BIN="$(cabal list-bin moonlight-planar:exe:moonlight-planar-alpha-spade-referent)"
 cargo build --release --features alpha-persistence --bin spade-referent-rs --manifest-path rust/Cargo.toml
 $ALPHA_HS_BIN alpha-receipt 1000
 rust/target/release/spade-referent-rs alpha-receipt 1000

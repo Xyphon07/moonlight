@@ -5,7 +5,9 @@ module Moonlight.Core.Fixpoint.Dense.Internal.Csr
     Csr (..),
     GraphCsr,
     RowCsr,
+    CsrAdmissionError (..),
     csrFromRows,
+    csrFromPackedRows,
     csrFromBoundedRows,
     csrTargetsForKey,
     csrTargetsSet,
@@ -40,6 +42,48 @@ data Csr shape = Csr
 type GraphCsr = Csr 'SquareGraph
 
 type RowCsr = Csr 'RectangularRows
+
+-- | A malformed packed row representation. Indices identify the offending
+-- offset or row; target identifiers have no square-graph bound.
+data CsrAdmissionError
+  = CsrNegativeRowCount !Int
+  | CsrOffsetCountMismatch !Int !Int
+  | CsrInitialOffsetNonzero !Int
+  | CsrDecreasingOffset !Int !Int !Int
+  | CsrFinalOffsetMismatch !Int !Int
+  | CsrNonascendingRowTargets !Int !Int !Int
+  deriving stock (Eq, Show)
+
+-- | Admit already sorted, duplicate-free rectangular rows without copying or
+-- normalizing either vector. In 'CsrOffsetCountMismatch', the fields are the
+-- declared row count and actual offset count, respectively.
+csrFromPackedRows :: Int -> Vector Int -> Vector Int -> Either CsrAdmissionError RowCsr
+csrFromPackedRows rowCount offsets targets
+  | rowCount < 0 = Left (CsrNegativeRowCount rowCount)
+  | toInteger (U.length offsets) /= toInteger rowCount + 1 =
+      Left (CsrOffsetCountMismatch rowCount (U.length offsets))
+  | otherwise = do
+      case offsets U.!? 0 of
+        Just 0 -> Right ()
+        Just initialOffset -> Left (CsrInitialOffsetNonzero initialOffset)
+        Nothing -> Left (CsrOffsetCountMismatch rowCount 0)
+      finalOffset <- U.ifoldM' admitOffset 0 offsets
+      if finalOffset == U.length targets
+        then Right ()
+        else Left (CsrFinalOffsetMismatch finalOffset (U.length targets))
+      U.ifoldM' admitRow () (U.zip offsets (U.drop 1 offsets))
+      pure (Csr rowCount offsets targets)
+  where
+    admitOffset previous index offset
+      | previous <= offset = Right offset
+      | otherwise = Left (CsrDecreasingOffset index previous offset)
+    admitRow () row (start, end) =
+      () <$ U.foldM' (admitTarget row) Nothing (U.slice start (end - start) targets)
+    admitTarget row previous target =
+      case previous of
+        Just prior | prior >= target -> Left (CsrNonascendingRowTargets row prior target)
+        _ -> Right (Just target)
+{-# INLINE csrFromPackedRows #-}
 
 csrFromRows :: Int -> [[Int]] -> RowCsr
 csrFromRows vertexCount rows =

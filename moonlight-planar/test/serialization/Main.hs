@@ -1,6 +1,6 @@
 module Main (main) where
 
-import qualified Moonlight.Triangulation.SerializationSpec as SerializationSpec
+import qualified Moonlight.Planar.SerializationSpec as SerializationSpec
 
 main :: IO ()
 main = SerializationSpec.tests

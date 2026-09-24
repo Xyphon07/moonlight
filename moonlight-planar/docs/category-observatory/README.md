@@ -17,8 +17,11 @@ mathematical model.
 
 The `cell-complex` component interprets an `ExactCellSet` as Homology's generic
 `CellComplex2D`. The opaque carrier retains the authoritative selected handles
-and resident DCEL. `fromExactCellSet` is total because `ExactCellSet`
-construction has already discharged downward closure and handle validity.
+and immutable incidence. `fromExactCellSet` derives a cellular refinement:
+arrangement faces with multiple boundary components receive abstract cut arcs,
+while native triangulations retain their original cells. Missing bounded-face
+anchors are typed construction failures. This exhibit uses the native case;
+it does not assign fabricated straight-line geometry to abstract cuts.
 
 The interpretation is available on GHC 9.14 and newer. Existing Triangulation
 components retain the package's GHC 9.8–9.14 support range: below 9.14 Cabal
@@ -31,16 +34,16 @@ Homology or Category closure.
 -- the consumer package
 build-depends:
   base >= 4.22 && < 5,
-  moonlight-triangulation >= 1.4 && < 1.5,
+  moonlight-planar >= 1.0 && < 1.1,
   moonlight-planar:cell-complex >= 1.0 && < 1.1,
   moonlight-homology:cell-category >= 0.1 && < 0.2
 ```
 
 ```haskell
 import Moonlight.Homology.Pure.Topology.CellCategory (complexCategory)
-import Moonlight.Triangulation.CellComplex (fromExactCellSet)
+import Moonlight.Planar.CellComplex (fromExactCellSet)
 
-incidenceCategory = complexCategory . fromExactCellSet
+incidenceCategory = fmap complexCategory . fromExactCellSet
 ```
 
 ## What owns what
@@ -49,14 +52,14 @@ The executable composes existing owners in one direction:
 
 ```text
 ExactCellSet
-  -> Moonlight.Triangulation.CellComplex.DCELComplex
+  -> Moonlight.Planar.CellComplex.DCELComplex
   -> Moonlight.Homology.Pure.Topology.CellCategory.ComplexCat
   -> Moonlight.Category.Simplicial.normalizedNerve
   -> checked schema-version-2 JSON
   -> Melusine's /category browser projection
 ```
 
-`moonlight-triangulation-category-observatory-export` owns only the checked
+`moonlight-planar-category-observatory-export` owns only the checked
 projection boundary. Geometry remains in Triangulation, the generic
 two-dimensional cell interface and incidence category remain in Homology, and
 the browser remains a derived view. There is no observatory-specific mesh,
@@ -92,7 +95,7 @@ root:
 
 ```console
 scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-category-observatory-export \
+  moonlight-planar:exe:moonlight-planar-category-observatory-export \
   --project-file=cabal.project.planar-dev
 ```
 
@@ -101,11 +104,11 @@ regenerate or verify the retained documentation picture:
 
 ```console
 scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-category-observatory-export \
+  moonlight-planar:exe:moonlight-planar-category-observatory-export \
   --project-file=cabal.project.planar-dev -- \
   picture compiler/foundation/moonlight-planar/docs/category-observatory/moonlight-triangulation-category-observatory.svg
 scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-category-observatory-export \
+  moonlight-planar:exe:moonlight-planar-category-observatory-export \
   --project-file=cabal.project.planar-dev -- \
   verify-artifacts compiler/foundation/moonlight-planar
 ```
@@ -129,7 +132,7 @@ responsibility:
 
 | module | responsibility |
 | --- | --- |
-| `Moonlight.Triangulation.Exhibit.CategoryObservatory` | deterministic witness and final descent |
+| `Moonlight.Planar.Exhibit.CategoryObservatory` | deterministic witness and final descent |
 | `.Model` | JSON projection types and typed obstructions |
 | `.Geometry` | mesh projection and geometric object placement |
 | `.Category` | finite object/morphism projection and inventory law |

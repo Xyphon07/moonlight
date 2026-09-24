@@ -3,8 +3,8 @@
 -- compression; sparse, negative, and giant keys stay in an 'IntMap' overlay.
 -- Successful transactions freeze back to the immutable 'UnionFind' owner.
 --
--- This module is the public face: the two transaction runners (the only
--- @runST@ seals) and the query/mutation verbs. The mutable arena lives in
+-- This module is the public face: the transaction runners and query/mutation
+-- verbs. The mutable arena and specialized compression seal live in
 -- sealed @Transaction.Internal.*@ owners; 'UnionFindEditor' is re-exported
 -- abstractly so no external caller can forge or dissect editor state.
 module Moonlight.Core.UnionFind.Transaction

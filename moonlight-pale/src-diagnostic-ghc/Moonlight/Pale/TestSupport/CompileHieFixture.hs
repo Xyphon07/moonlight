@@ -1,7 +1,12 @@
 {-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeApplications #-}
 
-{-| Isolated compilation of Haskell source into HIE artifacts and name oracles. -}
+{-| Isolated compilation of Haskell source into HIE artifacts and name oracles.
+
+The compile is hermetic: @-package-env -@ suppresses every package environment
+file, so the machine's @~\/.ghc\/<arch>\/environments\/default@ never names a
+package database for this compiler.  Fixture modules import nothing outside
+@base@, which GHC's global package database exposes without further flags. -}
 module Moonlight.Pale.TestSupport.CompileHieFixture
   ( HieFixtureModuleName,
     mkHieFixtureModuleName,
@@ -141,8 +146,10 @@ compileHieFixtureAtRoot ghcPath moduleName sourceBytes temporaryRoot = do
       stdoutPath = temporaryRoot </> "ghc.stdout"
       stderrPath = temporaryRoot </> "ghc.stderr"
       ghcArguments =
-        "-fno-code"
-          :| [ "-fforce-recomp",
+        "-package-env"
+          :| [ "-",
+               "-fno-code",
+               "-fforce-recomp",
                "-fwrite-ide-info",
                "-hiedir",
                hieDirectory,

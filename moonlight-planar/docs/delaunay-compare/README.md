@@ -2,7 +2,7 @@
 
 [Browse all exhibits.](../README.md)
 
-`moonlight-triangulation-delaunay-compare` is Moonlight's package-owned port of Spade's
+`moonlight-planar-delaunay-compare` is Moonlight's package-owned port of Spade's
 [`delaunay_compare`](https://github.com/Stoeoef/spade/tree/c8befc96bbbc1898a89cb19f9f3104a848936374/delaunay_compare)
 construction suite. It retains the upstream case matrix and appends
 `moonlight-triangulation` to the implementation list:
@@ -82,7 +82,7 @@ Receipt identity:
   `069d3bb1639b6d865fe4491b2fbbb9d0cdc8324173e30bebf690ed6592190c20`
 
 The Haskell projection in
-`Moonlight.Triangulation.Bench.DelaunayCompare.Picture` parses the tasty-bench
+`Moonlight.Planar.Bench.DelaunayCompare.Picture` parses the tasty-bench
 CSV against the exact closed 120-case registry and reports typed obstructions
 for malformed, unknown, duplicated, or missing observations before gluing
 either picture.
@@ -93,7 +93,7 @@ From the repository root, list the complete benchmark tree:
 
 ```console
 scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-delaunay-compare \
+  moonlight-planar:exe:moonlight-planar-delaunay-compare \
   --project-file=cabal.project.planar-dev \
   -- --list-tests
 ```
@@ -102,7 +102,7 @@ Run the comparison on one uncontended thread with wall-clock timing:
 
 ```console
 scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-delaunay-compare \
+  moonlight-planar:exe:moonlight-planar-delaunay-compare \
   --project-file=cabal.project.planar-dev \
   -- --time-mode wall -j1
 ```
@@ -121,7 +121,7 @@ rather than accumulating a benchmark diary.
 
 ```console
 caffeinate -i scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-delaunay-compare \
+  moonlight-planar:exe:moonlight-planar-delaunay-compare \
   --project-file=cabal.project.planar-dev -- \
   --stdev 5 --timeout 30s --time-mode cpu -j1 \
   --csv foundation/moonlight-planar/docs/delaunay-compare/results/moonlight-delaunay-compare-YYYY-MM-DD.csv \
@@ -133,7 +133,7 @@ CSV they may be derived from:
 
 ```console
 scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-delaunay-pictures \
+  moonlight-planar:exe:moonlight-planar-delaunay-pictures \
   --project-file=cabal.project.planar-dev -- \
   foundation/moonlight-planar/docs/delaunay-compare/results/moonlight-delaunay-compare-YYYY-MM-DD.csv \
   foundation/moonlight-planar/docs/delaunay-compare/results

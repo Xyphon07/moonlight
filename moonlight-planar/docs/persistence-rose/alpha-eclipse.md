@@ -19,5 +19,5 @@ profile comes from Moonlight Homology rather than a hand-authored diagram.
 On GHC 9.14, the package-owned generator reproduces the retained vector:
 
 ```console
-cabal run moonlight-triangulation-persistence-rose -- eclipse alpha-eclipse.svg
+cabal run moonlight-planar-persistence-rose -- eclipse alpha-eclipse.svg
 ```

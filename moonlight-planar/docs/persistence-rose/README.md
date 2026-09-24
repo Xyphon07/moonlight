@@ -26,14 +26,14 @@ those sublevels through dense complex-relative ranks without rebuilding
 geometry, reducing another boundary matrix, or rescanning the barcode per
 radius.
 
-The external component path uses the main facade for Delaunay construction and
-exact alpha births, then adds only the opt-in cell-complex lowering and
-Homology.
+The external component path names `build` for Delaunay construction and `dcel`
+for exact alpha births, then adds the opt-in cell-complex lowering and Homology.
 
 ```cabal
 build-depends:
   base >= 4.22 && < 5,
-  moonlight-triangulation >= 1.4 && < 1.5,
+  moonlight-planar:dcel >= 1.0 && < 1.1,
+  moonlight-planar:build >= 1.0 && < 1.1,
   moonlight-planar:cell-complex >= 1.0 && < 1.1,
   moonlight-homology >= 0.1 && < 0.2,
   vector >= 0.13 && < 0.14
@@ -47,12 +47,10 @@ import Moonlight.Homology.Persistence
   , mod2PersistentPairs
   , persistentBettiAtCriticalValues
   )
-import Moonlight.Triangulation
-  ( Point (..)
-  , alphaFiltration
-  , delaunayGeometry
-  )
-import Moonlight.Triangulation.CellComplex (filteredAlphaComplex)
+import Moonlight.Planar.Alpha (alphaFiltration)
+import Moonlight.Planar.BulkLoad (delaunayGeometry)
+import Moonlight.Planar.Point (Point (..))
+import Moonlight.Planar.CellComplex (filteredAlphaComplex)
 
 main :: IO ()
 main = do
@@ -67,7 +65,7 @@ requireRight :: Show failure => Either failure value -> IO value
 requireRight = either (fail . show) pure
 ```
 
-The focused `moonlight-triangulation-alpha-bench` measures exact preparation,
+The focused `moonlight-planar-alpha-bench` measures exact preparation,
 one persistence reduction plus all critical-radius queries, and repeated
 threshold homology as separate lanes over the same prebuilt Delaunay mesh.
 
@@ -77,8 +75,8 @@ On GHC 9.14, the package-owned generator reproduces the poster or the canonical
 65-frame seamless SVG sweep:
 
 ```console
-cabal run moonlight-triangulation-persistence-rose -- poster persistence-rose.svg
-cabal run moonlight-triangulation-persistence-rose -- frames 65 persistence-rose-frames
+cabal run moonlight-planar-persistence-rose -- poster persistence-rose.svg
+cabal run moonlight-planar-persistence-rose -- frames 65 persistence-rose-frames
 ```
 
 ## Retained GIF reproduction
@@ -98,9 +96,9 @@ ffmpeg -framerate 8 -start_number 0 -i persistence-rose-png/frame-%04d.png \
   -i persistence-rose-palette.png \
   -lavfi "[0:v]scale=960:-2:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
   -loop 0 -y persistence-rose-raw.gif
-cabal run moonlight-triangulation-persistence-rose -- \
+cabal run moonlight-planar-persistence-rose -- \
   stamp-gif persistence-rose-raw.gif docs/persistence-rose/moonlight-triangulation-persistence-rose.gif
-cabal run moonlight-triangulation-persistence-rose -- verify-artifacts .
+cabal run moonlight-planar-persistence-rose -- verify-artifacts .
 ```
 
 `verify-artifacts` compares both retained SVGs byte-for-byte with their pure

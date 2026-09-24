@@ -8,8 +8,8 @@ import Control.Exception (IOException, displayException, try)
 import Control.Monad.Trans.Except (ExceptT (ExceptT), except, runExceptT)
 import Data.Bifunctor (first)
 import Data.Foldable (traverse_)
-import Moonlight.Triangulation.Bench.DelaunayCompare.Domain (allSizeBands)
-import Moonlight.Triangulation.Bench.DelaunayCompare.Picture
+import Moonlight.Planar.Bench.DelaunayCompare.Domain (allSizeBands)
+import Moonlight.Planar.Bench.DelaunayCompare.Picture
 import System.Directory (createDirectoryIfMissing)
 import System.Environment (getArgs)
 import System.Exit (die)
@@ -64,7 +64,7 @@ writePicture outputDirectory (fileName, svgDocument) =
 renderPictureCommandFailure :: PictureCommandFailure -> String
 renderPictureCommandFailure = \case
   PictureCommandUsage ->
-    "usage: moonlight-triangulation-delaunay-pictures INPUT.csv OUTPUT_DIRECTORY"
+    "usage: moonlight-planar-delaunay-pictures INPUT.csv OUTPUT_DIRECTORY"
   PictureCommandReadFailed path details ->
     "could not read benchmark CSV " <> path <> ": " <> details
   PictureCommandCreateDirectoryFailed path details ->

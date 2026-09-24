@@ -4,11 +4,11 @@
 -- slices instead of importing them drifts the moment a slice grows.
 module Main (main) where
 
-import qualified Moonlight.Triangulation.BuildBench as BuildBench
-import qualified Moonlight.Triangulation.DcelBench as DcelBench
-import qualified Moonlight.Triangulation.DualBench as DualBench
-import qualified Moonlight.Triangulation.JoinBench as JoinBench
-import qualified Moonlight.Triangulation.RegionBench as RegionBench
+import qualified Moonlight.Planar.BuildBench as BuildBench
+import qualified Moonlight.Planar.DcelBench as DcelBench
+import qualified Moonlight.Planar.DualBench as DualBench
+import qualified Moonlight.Planar.JoinBench as JoinBench
+import qualified Moonlight.Planar.RegionBench as RegionBench
 
 main :: IO ()
 main = do

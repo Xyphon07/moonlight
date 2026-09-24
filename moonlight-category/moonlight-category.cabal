@@ -130,6 +130,7 @@ library indexed
     ghc-options: -Wno-pattern-namespace-specifier
   exposed-modules:
     Moonlight.Category.Pure.Indexed.Category
+    Moonlight.Category.Pure.Indexed.Relation
     Moonlight.Category.Pure.Indexed.Product
     Moonlight.Category.Pure.Indexed.Functor
     Moonlight.Category.Pure.Indexed.NaturalTransformation
@@ -142,6 +143,7 @@ library indexed
     Moonlight.Category.Pure.Indexed.Simplex
   build-depends:
     base >= 4.20 && < 5
+    , moonlight-algebra:join >= 0.1 && < 0.2
 
 library simplicial
   import: shared-properties

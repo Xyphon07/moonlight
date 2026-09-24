@@ -23,7 +23,7 @@ esac
 # projections: argument vectors for execution and the complete CSV inventory
 # for the report. Adding a row here would recreate the split this driver exists
 # to forbid.
-HS_BIN="${SPADE_HS_BIN:-$(cabal list-bin moonlight-planar:exe:moonlight-triangulation-spade-referent)}"
+HS_BIN="${SPADE_HS_BIN:-$(cabal list-bin moonlight-planar:exe:moonlight-planar-spade-referent)}"
 lanes=("${(@f)$("$HS_BIN" lane-specs parity)}")
 cliff_lanes=("${(@f)$("$HS_BIN" lane-specs cliff)}")
 snapshot_specs=("${(@f)$("$HS_BIN" snapshot-specs)}")
@@ -161,7 +161,7 @@ record "BuildStats (hs)" stats-hs "$tmp_root/stats-hs"
 # digest and executable build IDs therefore travel with every timing board.
 repo_root="$(git -C "$PWD" rev-parse --show-toplevel)"
 commit="$(git -C "$repo_root" rev-parse HEAD)"
-# Hash only the local sections that determine this board: the six Moonlight
+# Hash only the local sections that determine this board: the Moonlight
 # library components in the Haskell closure, both runner sources, the owning
 # package description, and the execution/projection programs. Documentation, tests,
 # other benchmarks, gates, baselines and rendered prose are neither runtime
@@ -172,7 +172,10 @@ source_files=("${(@f)$(comm -23 \
     compiler/foundation/moonlight-planar/src-core \
     compiler/foundation/moonlight-planar/src-dcel \
     compiler/foundation/moonlight-planar/src-build \
+    compiler/foundation/moonlight-planar/src-build-public \
     compiler/foundation/moonlight-planar/src-dual \
+    compiler/foundation/moonlight-planar/src-hex \
+    compiler/foundation/moonlight-planar/src-overlay \
     compiler/foundation/moonlight-planar/src-public \
     compiler/foundation/moonlight-planar/bench/spade-compare/cabal.project \
     compiler/foundation/moonlight-planar/bench/spade-compare/driver.sh \

@@ -140,10 +140,12 @@ library measurement
   if impl(ghc < 9.14)
     buildable: False
   exposed-modules:
+    Moonlight.Pale.Bench.ABBA
     Moonlight.Pale.Bench.Measure
   build-depends:
     base >= 4.22 && < 5
     , deepseq >= 1.5 && < 1.6
+    , text >= 2.1 && < 2.2
 
 test-suite moonlight-pale-bench-measure-test
   import: test-properties

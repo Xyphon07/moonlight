@@ -4,15 +4,17 @@ module Moonlight.Core.Dedup
   ( dedupStableOn,
     duplicatesOrd,
     firstDuplicate,
+    firstValueWithDuplicate,
     duplicateValuesOn,
   )
 where
 
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Maybe (Maybe (Just, Nothing), catMaybes, listToMaybe)
 import Data.Set qualified as Set
 import Data.Traversable (mapAccumL)
-import Prelude (Ord, fmap, id, snd, (.))
+import Prelude (Ord, fmap, fst, id, snd, (.))
 
 dedupStableOn :: Ord key => (value -> key) -> [value] -> [value]
 dedupStableOn keyOf =
@@ -36,6 +38,18 @@ duplicatesOrd =
 firstDuplicate :: Ord value => [value] -> Maybe value
 firstDuplicate =
   fmap snd . listToMaybe . duplicateValuesOn id
+
+-- | The earliest value in source order that occurs more than once.
+--
+-- This is deliberately distinct from 'firstDuplicate', which reports the
+-- value whose repeated occurrence is encountered first.  For @[a,b,b,a]@
+-- this function returns @a@ and 'firstDuplicate' returns @b@.
+firstValueWithDuplicate :: Ord value => [value] -> Maybe value
+firstValueWithDuplicate values =
+  List.find (`Set.member` repeatedValues) values
+  where
+    repeatedValues =
+      Set.fromList (fmap fst (duplicateValuesOn id values))
 
 duplicateValuesOn :: Ord key => (value -> key) -> [value] -> [(value, value)]
 duplicateValuesOn keyOf =

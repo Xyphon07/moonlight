@@ -7,7 +7,6 @@ module Moonlight.Hex.CellComplex
 import Data.Bifunctor (first)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Set qualified as Set
-import Data.Vector qualified as Vector
 import Moonlight.Hex.Coordinate (HexCoord)
 import Moonlight.Hex.Element
   ( HexSide
@@ -20,7 +19,7 @@ import Moonlight.Hex.Element
   , hexCellVertices
   , hexSideEndpoints
   )
-import Moonlight.Hex.Region (HexRegion, hexRegionCoords)
+import Moonlight.Hex.Region (HexRegion, foldHexRegionCoords)
 import Moonlight.Homology.Boundary
   ( BoundaryIncidence
   , FiniteChainComplex
@@ -54,7 +53,7 @@ finiteHexCellComplex region = do
   first HexCellComplexInvalid
     (mkFiniteChainComplexChecked (HomologicalDegree 2) boundaryAt)
  where
-  faceBasis = Vector.toList (hexRegionCoords region)
+  faceBasis = reverse (foldHexRegionCoords (flip (:)) [] region)
   edgeBasis =
     Set.toAscList
       (Set.fromList (faceBasis >>= NonEmpty.toList . hexCellSides))

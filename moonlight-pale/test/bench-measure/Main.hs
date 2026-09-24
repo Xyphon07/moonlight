@@ -1,7 +1,13 @@
 module Main (main) where
 
 import Data.List.NonEmpty (NonEmpty(..))
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Word (Word64)
+import Moonlight.Pale.Bench.ABBA
+  ( RunRole (..),
+    abbaQuartet,
+    quartetPositionRole,
+  )
 import Moonlight.Pale.Bench.Measure
   ( RtsMeasurement (..),
     RtsCounter (..),
@@ -28,6 +34,7 @@ main =
     ( testGroup
         "RTS measurement"
         [ testCase "all monotone counters produce their exact differences" monotoneDeltaLaw,
+          testCase "ABBA positions carry the canonical alternating roles" abbaRoleLaw,
           testCase "equal snapshots produce the zero delta" zeroDeltaLaw,
           testGroup "counter regression obstructions" (fmap counterRegressionLaw allRtsCounters),
           testGroup
@@ -42,6 +49,11 @@ main =
           testCase "RTS-backed measurement integration succeeds" measurementIntegrationSmokeLaw
         ]
     )
+
+abbaRoleLaw :: IO ()
+abbaRoleLaw =
+  fmap quartetPositionRole (NonEmpty.toList abbaQuartet)
+    @?= [BaselineRole, CandidateRole, CandidateRole, BaselineRole]
 
 monotoneDeltaLaw :: IO ()
 monotoneDeltaLaw =

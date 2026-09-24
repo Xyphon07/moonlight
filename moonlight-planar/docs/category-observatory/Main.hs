@@ -10,13 +10,13 @@ import Control.Monad.Trans.Except
 import Data.Aeson qualified as Aeson
 import Data.Bifunctor (first)
 import Data.ByteString.Lazy.Char8 qualified as LazyByteString
-import Moonlight.Triangulation.Exhibit.CategoryObservatory
+import Moonlight.Planar.Exhibit.CategoryObservatory
   ( Exhibit,
     ExhibitError,
     buildExhibit,
     renderExhibitError,
   )
-import Moonlight.Triangulation.Exhibit.CategoryObservatory.Picture
+import Moonlight.Planar.Exhibit.CategoryObservatory.Picture
   ( PictureObstruction,
     categoryObservatoryPictureFileName,
     renderCategoryObservatoryPicture,

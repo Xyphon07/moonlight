@@ -143,6 +143,9 @@ tests =
         "canonical compression is exact and idempotent"
         canonicalCompressionIsIdempotent,
       testCase
+        "dense canonical roots preserve negative representatives and sparse boundaries"
+        denseCanonicalRootsPreserveNegativeRepresentatives,
+      testCase
         "samePartition ignores representative history"
         samePartitionIgnoresRepresentativeHistory,
       testCase
@@ -428,6 +431,23 @@ canonicalCompressionIsIdempotent = do
         (UnionFind.canonicalClass (ClassId key) compressed)
     )
     (IntMap.toAscList parents)
+
+denseCanonicalRootsPreserveNegativeRepresentatives :: Assertion
+denseCanonicalRootsPreserveNegativeRepresentatives = do
+  let compressed =
+        UnionFind.compress
+          ( UnionFind.union
+              (ClassId 64)
+              (ClassId (-7))
+              (UnionFind.fromClassIds (ClassId <$> ([0 .. 127] <> [-7])))
+          )
+  assertEqual
+    "dense member, negative representative, and absent boundary"
+    (True, Just (ClassId (-7)), Nothing)
+    ( UnionFind.member (ClassId 64) compressed,
+      UnionFind.canonicalClass (ClassId 64) compressed,
+      UnionFind.canonicalClass (ClassId 128) compressed
+    )
 
 samePartitionIgnoresRepresentativeHistory :: Assertion
 samePartitionIgnoresRepresentativeHistory = do

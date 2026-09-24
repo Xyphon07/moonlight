@@ -31,14 +31,14 @@ import Moonlight.Homology.Persistence
   , mod2PersistentPairsWithCriticalBettiTable
   )
 import Moonlight.Homology.Topology (freeBettiVector)
-import Moonlight.Triangulation.Alpha
+import Moonlight.Planar.Alpha
   ( AlphaBirth
   , alphaFiltration
   )
-import Moonlight.Triangulation.BulkLoad (delaunayGeometry)
-import Moonlight.Triangulation.CellComplex (filteredAlphaComplex)
-import Moonlight.Triangulation.LabelledComplex (filteredPlanarComplex)
-import Moonlight.Triangulation.PowerDiagram
+import Moonlight.Planar.BulkLoad (delaunayGeometry)
+import Moonlight.Planar.CellComplex (filteredAlphaComplex)
+import Moonlight.Planar.LabelledComplex (filteredPlanarComplex)
+import Moonlight.Planar.PowerDiagram
   ( PowerSite
   , RegularTriangulation
   , powerSite
@@ -46,13 +46,14 @@ import Moonlight.Triangulation.PowerDiagram
   , regularTriangulation
   , regularTriangulationReceipt
   )
-import Moonlight.Triangulation.RegularAlpha
+import Moonlight.Planar.RegularAlpha
   ( PowerAlphaBirth
   , regularAlphaBirths
   , regularAlphaComplex
   , regularAlphaFiltration
   )
-import Moonlight.Triangulation.Types (DelaunayTriangulation, Point)
+import Moonlight.Planar.Types (DelaunayTriangulation)
+import Moonlight.Planar.Point (Point)
 
 type PreparedAlpha = FilteredFiniteChainComplex AlphaBirth Int
 

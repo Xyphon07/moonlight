@@ -41,16 +41,16 @@ Local schedules publish a fresh immutable mesh from the pages they touched, so
 readers continue observing the previous value while the next is built. A failed
 operation returns its obstruction with both operands unchanged.
 
-`Moonlight.Triangulation.Parallel.unionsConcurrently` interprets the same pure
+`Moonlight.Planar.Parallel.unionsConcurrently` interprets the same pure
 join tournament with bounded concurrency.
 
 ## Source authority
 
 The executable schedule decisions live in
-[`SetAlgebra`](../src-build/Moonlight/Triangulation/SetAlgebra.hs),
-[`BulkLoad`](../src-build/Moonlight/Triangulation/BulkLoad.hs),
-[`Join.Plan`](../src-build/Moonlight/Triangulation/Internal/Join/Plan.hs), and
-[`Cdt.Union`](../src-build/Moonlight/Triangulation/Internal/Cdt/Union.hs). The
+[`SetAlgebra`](../src-build/Moonlight/Planar/SetAlgebra.hs),
+[`BulkLoad`](../src-build/Moonlight/Planar/BulkLoad.hs),
+[`Join.Plan`](../src-build/Moonlight/Planar/Internal/Join/Plan.hs), and
+[`Cdt.Union`](../src-build/Moonlight/Planar/Internal/Cdt/Union.hs). The
 focused measurements live in
-[`JoinBench`](../bench/join/Moonlight/Triangulation/JoinBench.hs); this page is
+[`JoinBench`](../bench/join/Moonlight/Planar/JoinBench.hs); this page is
 their consumer-facing projection.

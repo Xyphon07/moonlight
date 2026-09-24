@@ -10,7 +10,99 @@ surface.
 The serialization format carries its own version tag, independent of the package
 version; any change to it is recorded here explicitly.
 
-## Unreleased
+## 1.1.0.0 - 2026-09-23
+
+* Require `moonlight-algebra >= 0.1.1`, the first release carrying the
+  public `join` sublibrary the construction kernels depend on.
+* `tested-with` names GHC 9.14.1 alone. Since 1.0.0.0 the package has not
+  solved on 9.8, 9.10 or 9.12: ungated components require `base >= 4.22`,
+  and so does every `moonlight-algebra` library.
+
+* Nearest queries minimize exact squared distance and then resident handle.
+  Constrained meshes use complete site selection; Delaunay ties no longer stop
+  at a merely local minimum handle. Real-constructor regressions cover hidden
+  constrained minima, cocircular ties and rounded binary64 near-ties.
+* Move convex admission, hulls, observations and errors to `Moonlight.Planar.Convex`
+  in the focused DCEL component. Remove morphology-owned convex authoring and the
+  duplicate generator dual carrier; the generator now owns `PowerDualEdge`.
+  Foreign raw convex admission has its own obstruction code 207.
+* Add restricted exact prepared power-mass sections, with quadratic areas,
+  complete strict cell/window certificates, empty-cell witnesses and exact open
+  interval expiry. Existing regular-site dispositions remain unchanged.
+* Encode V6 through storage-owned logical page folds without gathering shared
+  stores. Wire bytes, default payloads and field-major topology order are unchanged.
+* Compute sign-only lifted predicates using positive integer row scaling.
+  Rational determinant magnitudes remain authoritative for volume ordering.
+
+* Finish the package rename inside the package (2026-09-04). The module
+  namespace `Moonlight.Triangulation` and everything beneath it is now
+  `Moonlight.Planar`, and every test suite, benchmark, and executable
+  component named `moonlight-triangulation-*` is now `moonlight-planar-*`.
+  The C ABI is untouched: the `moonlight-triangulation-c` foreign library,
+  the `moonlight_triangulation.h` header, the exported symbol names, and the
+  Python, TypeScript, and Rust binding package names all keep their names,
+  because the bindings consume them by name.
+
+* Surgery on repeated validation (2026-09-03). A `Triangulation` is
+  admitted once, at its trust boundary: `refine` no longer re-validates
+  admitted input, local refinement no longer re-walks its closure after
+  the transaction, overlay residency no longer re-checks what the
+  constrained value certifies, and the region valuation sweep plans its
+  events once. The closure statistics are renamed for what they count
+  (`ClosureStats`, `closureFaces`, `refinementClosureStats`).
+* `CanonicalAdmission` is a lineage witness carried on the value: the
+  normal form's owner mints it, decode verifies it in one linear pass
+  over the arenas, and canonical publication of a value already in normal
+  form is the identity. No serialization format change.
+* The fixed-width orientation worker had never run (`MachDeps.h` was not
+  included, so the width test silently fell back). It runs now, and a
+  fixed-width in-circle worker joins it, cross-checked against the
+  arbitrary-precision determinant on 15,000 quadrilaterals.
+* `segmentRelationWith` decides collinearity before shared endpoints:
+  collinear segments overlapping for a positive length are an overlap
+  whether or not they share an endpoint; a straight continuation stays a
+  shared endpoint. The frozen relation oracle gains eight contact families.
+* `ExactLengthExpression` is a radical normal form: rational squares fold
+  into the coefficient, and radicands in one square class merge onto their
+  common kernel. The term field is `lengthRadicand :: Integer`
+  (was `squaredLength :: ExactRational`).
+* The facade is narrowed to the value algebra; statistics, sessions,
+  incremental bulk insertion, hint-seeded location and interpolation move
+  to `Moonlight.Planar.Telemetry`. `polygonInset` is retired in
+  favour of `erodeBy`; three never-raised `OverlayCellWitness`
+  constructors and `HexPlanarCoverageInvalid` are removed, and full-cell
+  hex coverage is total.
+* Local refinement's closure statistics and receipt are counted from the
+  domain's own faces and interface pairs; no closure set is materialized
+  on the publication path. The set-derived counts survive as the test-side
+  oracle (`topologyClosureSelectionStats`) with a law holding the two equal.
+* Receipts: refinement allocation down 23 to 30 percent, the local-refine
+  publication lane down about 70 percent end to end, hex intersection 65
+  to 26 ms, decode of a 20k-site mesh down 23 MB; power, minkowski and
+  overlay lanes at or below their previous numbers.
+
+* Add packed native hex dilation, right-adjoint erosion, opening, closing,
+  frontiers, connected-component labels, and multi-source shortest distances.
+  These operate in the existing `HexRegion` owner without boxed coordinate or
+  polygon intermediates.
+* Add three exact `PlanarRegion` restrictions onto a caller-supplied
+  `HexLayout`: closed center membership, full-cell coverage, and closed
+  intersection. Their boundary semantics are distinct in the names and types.
+* Centralize pure, effectful, and topology-derived packed construction beneath
+  the private `HexRegion` representation owner. Exact full-cell coverage now
+  uses `hexRegionGenerateM` and no longer exposes an impossible packed-word
+  admission failure; frontier kernels publish their final words without a
+  throwaway dilation or erosion vector.
+* Replace the package-local annotation semilattice with the canonical
+  dependency-light `Moonlight.Algebra.Pure.Join` owner, and hide the raw
+  `RefinementParameters` constructor behind checked authoring operations.
+* Admit canonical packed hex words without copying, decode versioned hex bytes
+  in bulk instead of rebuilding membership cell by cell, and restrict compatible
+  gluing to the word spans covered by each local section.
+* Move the canonical hex byte interpreter into the dependency-light
+  `hex-serialize` component; native hex consumers no longer build the DCEL.
+* Lower hex regions into Homology directly from the coordinate fold, without an
+  intermediate boxed vector.
 
 ## 1.0.0.0 - 2026-08-31
 
@@ -213,9 +305,9 @@ version; any change to it is recorded here explicitly.
   `constraintBatchStats`; `constrainedExtensionBuildStats` is unchanged. The
   batch is the same value `recoverConstraints` returns, so extension and
   standalone recovery are now read through one accessor set instead of two.
-* Withdraw the aggregator modules `Moonlight.Triangulation.Handles`,
-  `Moonlight.Triangulation.Handles.Iterators` and
-  `Moonlight.Triangulation.Internal.DcelOperations` from the exposed module
+* Withdraw the aggregator modules `Moonlight.Planar.Handles`,
+  `Moonlight.Planar.Handles.Iterators` and
+  `Moonlight.Planar.Internal.DcelOperations` from the exposed module
   list. Every leaf they re-exported remains exposed under its own name; import
   the leaf.
 * Add `BoundaryOrientation`, `boundaryLoopOrientation` and

@@ -2,20 +2,21 @@ module Main (main) where
 
 import Control.Exception (bracket)
 import Control.Monad (unless)
+import Data.Foldable (traverse_)
 import Data.Int (Int64)
 import Data.List (nub)
 import Data.Maybe (mapMaybe)
-import Data.Word (Word32)
+import Data.Word (Word32, Word64)
 import Foreign.C.String (peekCString)
 import Foreign.C.Types (CDouble (..), CSize (..), CUInt)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array (allocaArray, peekArray, withArray)
 import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable (Storable (sizeOf), peek)
-import Moonlight.Triangulation.Foreign.Contract
-import Moonlight.Triangulation.Foreign.Mesh
-import Moonlight.Triangulation.Foreign.Morphology
-import Moonlight.Triangulation.Foreign.Region
+import Moonlight.Planar.Foreign.Contract
+import Moonlight.Planar.Foreign.Mesh
+import Moonlight.Planar.Foreign.Morphology
+import Moonlight.Planar.Foreign.Region
 
 type MeshPointer = Ptr CMesh
 type RegionPointer = Ptr CRegion
@@ -43,6 +44,7 @@ main = do
       requireMeshCount "left triangle count" meshTriangleCount left 2
       testDenseCopies left
       testImmutableBatch left
+      testBatchExtents left
       testBatchAdmission left
       testSiteSetAlgebra left right
   testExactRegionSurface
@@ -50,6 +52,7 @@ main = do
   testCoordinateCountOverflow
   testNullPointerRefusal
   testRegionLayoutRefusal
+  testConvexAndMorphologyRefusals
   putStrLn "ffi: ok"
 
 testStableWireContract :: IO ()
@@ -74,6 +77,7 @@ testStableWireContract = do
         && obstructionCodeId ObstructionCountOverflow == 101
         && obstructionCodeId ObstructionBufferTooSmall == 102
         && obstructionCodeId ObstructionRegionLayoutInvalid == 200
+        && obstructionCodeId ObstructionConvexFailed == 207
         && fmap regionLocationCodeId allRegionLocationCodes == [0, 1, 2]
         && fmap minkowskiOperationCodeId allMinkowskiOperationCodes == [0, 1, 2, 3]
     )
@@ -139,24 +143,69 @@ testImmutableBatch original =
         requireMeshCount "original after batch" meshVertexCount original 4
         requireMeshCount "revised after batch" meshVertexCount revised 6)
 
+testBatchExtents :: MeshPointer -> IO ()
+testBatchExtents original = do
+  originalCoordinates <- copyMeshCoordinates original 4
+  traverse_
+    (\(label, points, expectedCount) ->
+       withPointArray points $ \coordinates ->
+         bracket
+           (produceHandle label (meshInsertManyF64 original coordinates (fromIntegral (length points))))
+           meshFree
+           (\revised -> do
+              requireMeshCount label meshVertexCount revised expectedCount
+              revisedCoordinates <- copyMeshCoordinates revised expectedCount
+              unless (take 8 revisedCoordinates == originalCoordinates) $
+                fail (label <> " changed a resident vertex handle")
+              retainedCoordinates <- copyMeshCoordinates original 4
+              unless (retainedCoordinates == originalCoordinates) $
+                fail (label <> " mutated the original mesh"))
+    )
+    [ ("empty batch", [], 4)
+    , ("singleton batch", [(1, 1)], 5)
+    , ("resident-only batch", replicate 32 (0, 0) <> replicate 32 (2, 2), 4)
+    , ("repeated-new batch", replicate 64 (1, 1), 5)
+    , ("mixed-duplicate batch", [(-0.0, 0), (1, 1), (2, 2), (1, 1), (0, 0)], 5)
+    ]
+
+copyMeshCoordinates :: MeshPointer -> Int -> IO [CDouble]
+copyMeshCoordinates mesh count =
+  allocaArray (2 * count) $ \coordinates ->
+    alloca $ \written ->
+      alloca $ \obstruction -> do
+        status <- meshCopyVerticesF64 mesh coordinates (fromIntegral count) written obstruction
+        requireStatus "batch coordinate witness" AbiStatusOk status obstruction
+        observed <- peek written
+        unless (observed == fromIntegral count) $
+          fail "batch coordinate witness has the wrong extent"
+        peekArray (2 * count) coordinates
+
 testBatchAdmission :: MeshPointer -> IO ()
 testBatchAdmission original = do
-  testLateInvalidPoint
+  traverse_
+    testInvalidPoints
+    [ ("late invalid batch point", [(1, 1), (3, 1), (0 / 0, 1)], 2)
+    , ("first invalid batch point", [(0 / 0, 1), (1, 1), (1, 1 / 0)], 0)
+    ]
   testCanonicalZeros
  where
-  testLateInvalidPoint =
-    withPointArray [(1, 1), (3, 1), (0 / 0, 1)] $ \coordinates ->
+  testInvalidPoints :: (String, [Point], Word64) -> IO ()
+  testInvalidPoints (label, points, expectedIndex) =
+    withPointArray points $ \coordinates ->
       alloca $ \output ->
         alloca $ \obstruction -> do
-          status <- meshInsertManyF64 original coordinates 3 output obstruction
-          requireStatus "late invalid batch point" AbiStatusGeometryObstruction status obstruction
+          status <- meshInsertManyF64 original coordinates (fromIntegral (length points)) output obstruction
+          requireStatus label AbiStatusGeometryObstruction status obstruction
           refusal <- peek obstruction
           unless
             ( obstructionCode refusal == obstructionCodeId ObstructionInvalidCoordinate
                 && obstructionCoordinateError refusal == coordinateErrorCodeId CoordinateErrorNaN
-                && obstructionInputIndex refusal == 2
+                && obstructionInputIndex refusal == expectedIndex
             )
-            (fail "late invalid batch point lost its raw input-index obstruction")
+            (fail (label <> " lost its raw input-index obstruction"))
+          unpublished <- peek output
+          unless (unpublished == nullPtr) $
+            fail (label <> " published a partial batch")
           requireMeshCount "original after refused batch" meshVertexCount original 4
   testCanonicalZeros =
     let negativeZero = -0.0 :: Double
@@ -372,7 +421,30 @@ testTypedCoordinateRefusal =
               && obstructionCoordinateError refusal == coordinateErrorCodeId CoordinateErrorNaN
               && obstructionInputIndex refusal == 1
           ) $
-          fail "invalid coordinate lost its typed witness"
+            fail "invalid coordinate lost its typed witness"
+
+testConvexAndMorphologyRefusals :: IO ()
+testConvexAndMorphologyRefusals =
+  sequence_
+    [ requireRefusal "self-intersecting convex input" ObstructionConvexFailed
+        [(0, 3), (-2, -3), (3, 1), (-3, 1), (2, -3)]
+    , requireRefusal "convex input not anchored at origin" ObstructionMinkowskiFailed
+        [(1, 1), (2, 1), (2, 2), (1, 2)]
+    ]
+ where
+  requireRefusal :: String -> ObstructionCode -> [Point] -> IO ()
+  requireRefusal label expected points =
+    withPointArray points $ \coordinates ->
+      alloca $ \output ->
+        alloca $ \obstruction -> do
+          status <- structuringElementCreateF64 coordinates (fromIntegral (length points)) output obstruction
+          requireStatus label AbiStatusGeometryObstruction status obstruction
+          refusal <- peek obstruction
+          unless (obstructionCode refusal == obstructionCodeId expected) $
+            fail (label <> " crossed the convex/morphology error boundary")
+          unpublished <- peek output
+          unless (unpublished == nullPtr) $
+            fail (label <> " published an invalid structuring element")
 
 testNullPointerRefusal :: IO ()
 testNullPointerRefusal =

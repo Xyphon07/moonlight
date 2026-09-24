@@ -10,16 +10,13 @@ module BenchSupport
 import Data.List qualified as List
 import Data.Word (Word64)
 import Data.Vector qualified as V
-import Moonlight.Triangulation.Dcel
+import Moonlight.Planar.Dcel
   ( faceVertices
   , vertexPoint
   )
-import Moonlight.Triangulation.Internal.HandleDefs (FaceId)
-import Moonlight.Triangulation.Types
-  ( Point (Point)
-  , Triangulation
-  , pointX
-  )
+import Moonlight.Planar.Internal.HandleDefs (FaceId)
+import Moonlight.Planar.Point (Point (Point, pointX))
+import Moonlight.Planar.Types (Triangulation)
 
 randomPoints :: Word64 -> Int -> [Point]
 randomPoints seed count = take count (go seed)

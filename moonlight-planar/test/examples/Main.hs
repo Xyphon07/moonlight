@@ -1,12 +1,12 @@
 module Main (main) where
 
-import Moonlight.Triangulation.Example.AlphaBoundary
-import Moonlight.Triangulation.Example.ConstrainedRegion
-import Moonlight.Triangulation.Example.PlanarRegion
-import Moonlight.Triangulation.Example.SetAlgebra
-import Moonlight.Triangulation.Handles.Dynamic ()
-import Moonlight.Triangulation.Session ()
-import Moonlight.Triangulation.Voronoi ()
+import Moonlight.Planar.Example.AlphaBoundary
+import Moonlight.Planar.Example.ConstrainedRegion
+import Moonlight.Planar.Example.PlanarRegion
+import Moonlight.Planar.Example.SetAlgebra
+import Moonlight.Planar.Handles.Dynamic ()
+import Moonlight.Planar.Session ()
+import Moonlight.Planar.Voronoi ()
 import System.Exit (die)
 
 main :: IO ()

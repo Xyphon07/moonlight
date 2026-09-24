@@ -825,7 +825,7 @@ def main() -> None:
     print(f"PARITY     {parity_summary.replace('**', '')}")
 
     report = (
-        "# spade 2.15.1 vs moonlight-triangulation\n\n"
+        "# spade 2.15.1 vs moonlight-planar\n\n"
         f"{PROTOCOL_NOTICE}\n"
         "Derived from `scorecard.csv` and the typed Haskell lane registry by\n"
         "`scorecard.py`. Adopt a fresh board with\n"

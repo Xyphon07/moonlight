@@ -21,6 +21,8 @@ import FieldBettiSpec qualified
 import GF2GraphSpec qualified
 import MorseSpec qualified
 import PresentationSpec qualified
+import ProfileSpec qualified
+import RealizationSpec qualified
 import SpectralSpec qualified
 import TestFixtures
   ( GenuineGoldenCase (..),
@@ -58,6 +60,8 @@ tests =
       determinismHarnessTests,
       MorseSpec.tests,
       PresentationSpec.tests,
+      ProfileSpec.tests,
+      RealizationSpec.tests,
       TopologySpec.tests,
       ZigzagSpec.tests
     ]

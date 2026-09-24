@@ -1,6 +1,6 @@
 # Persistent regular-site algebra
 
-`Moonlight.Triangulation.PowerDiagram` owns the complete weighted-site value.
+`Moonlight.Planar.PowerDiagram` owns the complete weighted-site value.
 Use this surface when site identity must survive visibility changes or repeated
 weight updates.
 

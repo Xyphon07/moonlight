@@ -31,8 +31,8 @@ fi
 # and render modes consume its typed projection rather than a second hand-kept
 # array in shell or Python.
 print -u2 ">> building Haskell lane registry"
-cabal build moonlight-triangulation:exe:moonlight-triangulation-spade-referent >/dev/null
-HS_BIN="$(cabal list-bin moonlight-triangulation:exe:moonlight-triangulation-spade-referent)"
+cabal build --builddir=dist-newstyle-spade moonlight-planar:exe:moonlight-planar-spade-referent >/dev/null
+HS_BIN="$(cabal list-bin --builddir=dist-newstyle-spade moonlight-planar:exe:moonlight-planar-spade-referent)"
 export SPADE_HS_BIN="$HS_BIN"
 
 if [[ "$MODE" == list ]]; then

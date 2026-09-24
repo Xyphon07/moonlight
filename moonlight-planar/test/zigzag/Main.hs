@@ -7,15 +7,12 @@ import Data.List.NonEmpty qualified as NonEmpty
 import Data.Set qualified as Set
 import Data.Vector qualified as Vector
 import Moonlight.Homology.Chain (HomologicalDegree (..))
-import Moonlight.Triangulation.Example.ActivationZigzag
+import Moonlight.Planar.Example.ActivationZigzag
   ( squareLoopAcrossDepths
   )
-import Moonlight.Triangulation.Types
-  ( Point (..)
-  , RadiusSquared
-  , mkRadiusSquared
-  )
-import Moonlight.Triangulation.Zigzag
+import Moonlight.Planar.Point (Point (..))
+import Moonlight.Planar.Scalar (RadiusSquared, mkRadiusSquared)
+import Moonlight.Planar.Zigzag
   ( ActivationComplex
   , ActivationInterval
   , ActivationPoint (..)

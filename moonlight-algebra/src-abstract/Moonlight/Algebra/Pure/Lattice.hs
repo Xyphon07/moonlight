@@ -41,6 +41,13 @@ import Data.Kind (Constraint, Type)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
+import Moonlight.Algebra.Pure.Join
+  ( BoundedJoinSemilattice (..)
+  , Join (..)
+  , JoinSemilattice (..)
+  , joins
+  , joins1
+  )
 import Moonlight.Core
   ( FixpointDivergence (..),
     PartialOrder,
@@ -50,84 +57,9 @@ import Numeric.Natural
   ( Natural,
   )
 
-type Join :: Type -> Type
-newtype Join a = Join {getJoin :: a}
-  deriving stock (Eq, Ord, Show)
-
 type Meet :: Type -> Type
 newtype Meet a = Meet {getMeet :: a}
   deriving stock (Eq, Ord, Show)
-
-type JoinSemilattice :: Type -> Constraint
-class JoinSemilattice a where
-  join :: a -> a -> a
-
-instance JoinSemilattice () where
-  join _ _ = ()
-
-instance JoinSemilattice Bool where
-  join = (||)
-
-instance Ord a => JoinSemilattice (Set.Set a) where
-  join = Set.union
-
-instance JoinSemilattice IntSet.IntSet where
-  join = IntSet.union
-
-instance (Ord key, JoinSemilattice value) => JoinSemilattice (Map.Map key value) where
-  join = Map.unionWith join
-
-instance JoinSemilattice value => JoinSemilattice (IntMap.IntMap value) where
-  join = IntMap.unionWith join
-
-instance (JoinSemilattice left, JoinSemilattice right) => JoinSemilattice (left, right) where
-  join (leftA, rightA) (leftB, rightB) =
-    (join leftA leftB, join rightA rightB)
-
-instance JoinSemilattice value => JoinSemilattice (key -> value) where
-  join left right key =
-    join (left key) (right key)
-
-instance JoinSemilattice a => Semigroup (Join a) where
-  Join left <> Join right =
-    Join (join left right)
-
-type BoundedJoinSemilattice :: Type -> Constraint
-class JoinSemilattice a => BoundedJoinSemilattice a where
-  bottom :: a
-
-instance BoundedJoinSemilattice () where
-  bottom = ()
-
-instance BoundedJoinSemilattice Bool where
-  bottom = False
-
-instance Ord a => BoundedJoinSemilattice (Set.Set a) where
-  bottom = Set.empty
-
-instance BoundedJoinSemilattice IntSet.IntSet where
-  bottom = IntSet.empty
-
-instance (Ord key, JoinSemilattice value) => BoundedJoinSemilattice (Map.Map key value) where
-  bottom = Map.empty
-
-instance JoinSemilattice value => BoundedJoinSemilattice (IntMap.IntMap value) where
-  bottom = IntMap.empty
-
-instance
-  (BoundedJoinSemilattice left, BoundedJoinSemilattice right) =>
-  BoundedJoinSemilattice (left, right)
-  where
-  bottom =
-    (bottom, bottom)
-
-instance BoundedJoinSemilattice value => BoundedJoinSemilattice (key -> value) where
-  bottom =
-    const bottom
-
-instance BoundedJoinSemilattice a => Monoid (Join a) where
-  mempty =
-    Join bottom
 
 type MeetSemilattice :: Type -> Constraint
 class MeetSemilattice a where
@@ -380,14 +312,6 @@ joinLeq left right =
 meetLeq :: (Eq a, MeetSemilattice a) => a -> a -> Bool
 meetLeq left right =
   meet left right == left
-
-joins :: (BoundedJoinSemilattice a, Foldable foldable) => foldable a -> a
-joins =
-  foldl' join bottom
-
-joins1 :: JoinSemilattice a => NonEmpty a -> a
-joins1 (first :| rest) =
-  foldl' join first rest
 
 meets :: (BoundedMeetSemilattice a, Foldable foldable) => foldable a -> a
 meets =

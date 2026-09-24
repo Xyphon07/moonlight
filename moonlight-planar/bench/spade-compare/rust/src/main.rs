@@ -1,6 +1,6 @@
 //! Rust half of the spade external referent.
 //!
-//! `moonlight-triangulation` is a port of this crate, so spade is the referent
+//! `moonlight-planar` is a port of this crate, so spade is the referent
 //! that grades it. Both halves generate their inputs from the same LCG with the
 //! same seeds and emit their gate output in the same encoding, so neither side
 //! can reformat a disagreement into agreement.

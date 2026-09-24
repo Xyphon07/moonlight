@@ -1,9 +1,9 @@
 -- | Haskell owner of the upstream-compatible construction comparison.
 module Main (main) where
 
-import Moonlight.Triangulation.Bench.DelaunayCompare.Domain (renderCompareObstruction)
-import Moonlight.Triangulation.Bench.DelaunayCompare.Native (withNativeApi)
-import Moonlight.Triangulation.Bench.DelaunayCompare.Suite
+import Moonlight.Planar.Bench.DelaunayCompare.Domain (renderCompareObstruction)
+import Moonlight.Planar.Bench.DelaunayCompare.Native (withNativeApi)
+import Moonlight.Planar.Bench.DelaunayCompare.Suite
   ( preflightSuite
   , suiteAgreementMessage
   , suiteBenchmarks

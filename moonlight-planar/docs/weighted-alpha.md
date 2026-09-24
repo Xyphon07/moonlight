@@ -1,6 +1,6 @@
 # Exact weighted alpha filtration
 
-`Moonlight.Triangulation.RegularAlpha` derives a signed exact alpha filtration
+`Moonlight.Planar.RegularAlpha` derives a signed exact alpha filtration
 from the canonical `RegularTriangulation`. It reuses resident regular faces,
 edges, weighted-dual points, rays, and lines; no second weighted geometry is
 constructed.
@@ -25,7 +25,7 @@ Use ordinary `alphaFiltration` for an unweighted Delaunay DCEL. Use
 edits are semantic inputs.
 
 ```console
-cabal bench moonlight-triangulation-alpha-bench
+cabal bench moonlight-planar-alpha-bench
 ```
 
 [Return to the operation index.](../README.md#operations)

@@ -8,6 +8,9 @@ indexes and retained pictures are derived views of those owners.
 | Which public operation should I call? | [Package operation index](../README.md#operations) |
 | Which library token should I depend on? | [Consumer libraries](../README.md#consumer-libraries) |
 | What algebraic laws do meshes satisfy? | [Package algebraic contract](../README.md#algebraic-contract) |
+| How do I author curves, paint illustrations, and make local semantic edits? | [Curve and illustration guide](../README.md#curves-and-illustration) |
+| How far is curve authoring from a complete illustration language? | [Present boundary and missing algebra](./curve-authoring-status.md) |
+| How do parts attach and lay out without losing their semantic ports? | [Typed attachment and geometric layout](../README.md#typed-attachment-and-geometric-layout) |
 | How are exact power cells and affine envelopes represented? | [Package affine-cell guide](../README.md#exact-power-cells-and-affine-envelopes) |
 | How do weighted sites survive insertion, removal, and reweighting? | [Persistent regular-site algebra](./regular-site-algebra.md) |
 | How do weighted regular cells become an exact alpha filtration? | [Exact weighted alpha filtration](./weighted-alpha.md) |

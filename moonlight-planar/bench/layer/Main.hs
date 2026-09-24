@@ -1,8 +1,10 @@
 module Main (main) where
 
-import qualified Moonlight.Triangulation.LayerBench as LayerBench
+import Control.DeepSeq (force)
+import Control.Exception (evaluate)
+import qualified Moonlight.Planar.LayerBench as LayerBench
 
 main :: IO ()
 main = do
-  fixtures <- LayerBench.prepareFixtures
+  fixtures <- LayerBench.prepareFixtures >>= evaluate . force
   LayerBench.runBenchmarks fixtures

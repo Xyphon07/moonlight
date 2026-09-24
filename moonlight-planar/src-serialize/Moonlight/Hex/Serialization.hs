@@ -12,11 +12,11 @@ module Moonlight.Hex.Serialization
   ) where
 
 import Control.DeepSeq (NFData)
-import Control.Monad (replicateM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Data.Binary.Get
   ( Get
+  , getByteString
   , getInt64be
   , getWord16be
   , getWord64be
@@ -28,7 +28,9 @@ import Data.Binary.Put
   , putWord64be
   , runPut
   )
-import Data.Bits ((.&.), complement, shiftL)
+import Data.Bits ((.|.), shiftL)
+import Data.ByteString qualified as BS
+import Data.ByteString.Unsafe qualified as BSU
 import Data.ByteString.Lazy qualified as BL
 import Data.Int (Int64)
 import Data.Vector.Unboxed qualified as U
@@ -36,8 +38,8 @@ import Data.Word (Word16, Word64)
 import GHC.Generics (Generic)
 import Moonlight.Hex.Coordinate (HexCoord (..))
 import Moonlight.Hex.Region
-  ( HexLayout
-  , HexLayoutObstruction
+  ( HexLayoutObstruction
+  , HexPackedRegionObstruction (..)
   , HexRegion
   , hexLayout
   , hexLayoutCellCount
@@ -46,7 +48,7 @@ import Moonlight.Hex.Region
   , hexLayoutWidth
   , hexLayoutWordCount
   , foldHexRegionPackedWords
-  , hexRegionGenerate
+  , hexRegionFromPackedWords
   , hexRegionLayout
   )
 
@@ -68,7 +70,7 @@ data HexSerializationError
   | HexCoordinateOutsideInt !Int64 !Int64
   | HexExtentOutsideInt !Word64 !Word64
   | HexSerializedLayoutInvalid !HexLayoutObstruction
-  | HexNonCanonicalPadding !Word64
+  | HexSerializedPackedRegionInvalid !HexPackedRegionObstruction
   deriving stock (Eq, Show, Generic)
   deriving anyclass (NFData)
 
@@ -138,45 +140,30 @@ getHexRegion budget = do
   if cellCount > hexDecodingMaximumCells budget
     then throwE (HexCellBudgetExceeded cellCount (hexDecodingMaximumCells budget))
     else pure ()
-  serializedWords <- U.fromList <$> lift (replicateM (hexLayoutWordCount layout) getWord64be)
-  validatePadding layout serializedWords
-  pure (hexRegionGenerate layout (serializedMember layout serializedWords))
+  let wordCount = hexLayoutWordCount layout
+  serializedBytes <- lift (getByteString (wordCount * 8))
+  let serializedWords = decodePackedWords wordCount serializedBytes
+  either (throwE . HexSerializedPackedRegionInvalid) pure (hexRegionFromPackedWords layout serializedWords)
 
-validatePadding :: HexLayout -> U.Vector Word64 -> HexDecoder ()
-validatePadding layout wordsValue =
-  let mask = finalWordMask layout
-      canonical =
-        U.ifoldl'
-          (\valid index word ->
-              valid
-                && ( index + 1 < hexLayoutWordCount layout
-                       || word .&. complement mask == 0
-                   )
-          )
-          True
-          wordsValue
-   in if canonical
-        then pure ()
-        else
-          let padding = U.foldl' (\_ word -> word .&. complement mask) 0 wordsValue
-           in throwE (HexNonCanonicalPadding padding)
-
-serializedMember :: HexLayout -> U.Vector Word64 -> HexCoord -> Bool
-serializedMember layout wordsValue (HexCoord q r) =
-  let HexCoord originQ originR = hexLayoutOrigin layout
-      index = (r - originR) * hexLayoutWidth layout + (q - originQ)
-      (wordIndex, bitIndex) = index `quotRem` 64
-   in wordsValue `U.unsafeIndex` wordIndex .&. (1 `shiftL` bitIndex) /= 0
-{-# INLINE serializedMember #-}
-
-finalWordMask :: HexLayout -> Word64
-finalWordMask layout = lowBitMask (((hexLayoutCellCount layout - 1) `rem` 64) + 1)
-
-lowBitMask :: Int -> Word64
-lowBitMask count
-  | count >= 64 = maxBound
-  | count <= 0 = 0
-  | otherwise = (1 `shiftL` count) - 1
+decodePackedWords :: Int -> BS.ByteString -> U.Vector Word64
+decodePackedWords wordCount bytes = U.generate wordCount decodeWord
+ where
+  decodeWord :: Int -> Word64
+  decodeWord wordIndex =
+    -- 'getByteString' admitted exactly @wordCount * 8@ bytes before this
+    -- representation boundary; the eight indexed bytes therefore exist.
+    let byteOffset = wordIndex * 8
+        byte :: Int -> Word64
+        byte index = fromIntegral (BSU.unsafeIndex bytes (byteOffset + index))
+     in byte 0 `shiftL` 56
+          .|. byte 1 `shiftL` 48
+          .|. byte 2 `shiftL` 40
+          .|. byte 3 `shiftL` 32
+          .|. byte 4 `shiftL` 24
+          .|. byte 5 `shiftL` 16
+          .|. byte 6 `shiftL` 8
+          .|. byte 7
+{-# INLINE decodePackedWords #-}
 
 int64PairToCoord :: Int64 -> Int64 -> Maybe HexCoord
 int64PairToCoord q r = HexCoord <$> int64ToInt q <*> int64ToInt r

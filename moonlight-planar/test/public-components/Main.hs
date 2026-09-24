@@ -2,35 +2,47 @@ module Main (main) where
 
 import Data.Bifunctor (first)
 import qualified Data.Vector as Vector
-import Moonlight.Triangulation.BulkLoad (delaunayGeometry)
-import Moonlight.Triangulation.Dcel (numVertices)
-import Moonlight.Triangulation.FloodFillIterator
+import qualified Moonlight.Planar.AdmissionSpec as AdmissionSpec
+import Moonlight.Planar.BulkLoad (delaunayGeometry)
+import Moonlight.Planar.Dcel (numVertices)
+import Moonlight.Planar.FloodFillIterator
   ( RectangleMetricError
   , verticesInRectangle
   )
-import Moonlight.Triangulation.Handles.Iterators.DynamicIterators
+import Moonlight.Planar.Handles.Iterators.DynamicIterators
   ( vertexHandles
   )
-import Moonlight.Triangulation.Handles.Scoped
+import Moonlight.Planar.Handles.Scoped
   ( scopedVertexPoint
   , scopedVertices
   , withScopedTriangulation
   )
-import Moonlight.Triangulation.PointLocation (locatePoint)
-import Moonlight.Triangulation.Session
+import Moonlight.Planar.HintGenerator (buildHierarchyHint, hierarchyHint)
+import Moonlight.Planar.PointLocation (locatePoint)
+import Moonlight.Planar.Refinement
+  ( refinementAdditionalVertexBudget
+  , refinementExcludesOuterFaces
+  , refinementMaximumArea
+  , refinementMinimumArea
+  , refinementPreservesConstraints
+  , validateRefinementParameters
+  , withAdditionalVertexBudget
+  , withConstraintPreservation
+  , withMaximumArea
+  , withMinimumArea
+  , withOuterFaceExclusion
+  )
+import Moonlight.Planar.Session
   ( insertVertexAtNearVertex
   , removeAt
   , withSession
   )
-import Moonlight.Triangulation.Types
-  ( BuildError
-  , InsertionDisposition (Inserted)
-  , Location (OnVertex)
-  , Point (..)
-  , PointValidationError
-  )
-import Moonlight.Triangulation.Math (mkQueryPoint, orient2d)
-import Moonlight.Triangulation.Validation (validateTriangulation)
+import Moonlight.Planar.Types (BuildError, defaultRefinementParameters, InsertionDisposition (Inserted), Location (OnVertex))
+import Moonlight.Planar.Point (Point (..), PointValidationError)
+import qualified Moonlight.Planar.Telemetry as Telemetry
+import Moonlight.Planar.Point (mkQueryPoint)
+import Moonlight.Planar.Math (orient2d)
+import Moonlight.Planar.Validation (validateTriangulation)
 import System.Exit (die)
 
 data PublicComponentFailure
@@ -47,6 +59,7 @@ data PublicComponentSummary = PublicComponentSummary
   , rectangleVertices :: !Int
   , locatedResidentVertex :: !Bool
   , admittedPredicateCorrect :: !Bool
+  , hierarchyTelemetryNearestCorrect :: !Bool
   , sessionInsertedVertex :: !Bool
   , sessionRemovedVertex :: !Bool
   , finalMeshValid :: !Bool
@@ -54,11 +67,38 @@ data PublicComponentSummary = PublicComponentSummary
   deriving stock (Eq, Show)
 
 main :: IO ()
-main =
+main = do
+  AdmissionSpec.tests
+  assertRefinementParameterAPI
   either
     (die . ("public component workflow refused: " <>) . show)
     assertExpected
     publicComponentWorkflow
+
+assertRefinementParameterAPI :: IO ()
+assertRefinementParameterAPI =
+  case do
+    withAdditionalVertexBudget 32 defaultRefinementParameters
+      >>= withMaximumArea 4
+      >>= withMinimumArea 1
+      >>= pure . withConstraintPreservation True
+      >>= pure . withOuterFaceExclusion True
+  of
+    Left obstruction -> die ("checked refinement authoring refused: " <> show obstruction)
+    Right parameters -> do
+      case validateRefinementParameters parameters of
+        Left obstruction -> die ("admitted refinement parameters failed validation: " <> show obstruction)
+        Right () -> pure ()
+      if refinementAdditionalVertexBudget parameters == Just 32
+          && refinementMinimumArea parameters == Just 1
+          && refinementMaximumArea parameters == Just 4
+          && refinementPreservesConstraints parameters
+          && refinementExcludesOuterFaces parameters
+        then pure ()
+        else die "checked refinement observations disagreed with their setters"
+      case withMaximumArea 2 defaultRefinementParameters >>= withMinimumArea 3 of
+        Left _ -> pure ()
+        Right _ -> die "minimum area greater than maximum area was admitted"
 
 publicComponentWorkflow :: Either PublicComponentFailure PublicComponentSummary
 publicComponentWorkflow = do
@@ -77,6 +117,10 @@ publicComponentWorkflow = do
   seed <- case locatePoint square query of
     OnVertex vertex -> Right vertex
     _ -> Left PublicSeedVertexMissing
+  hierarchy <- first PublicBuildFailure (buildHierarchyHint 2 square)
+  let hintedVertex = case hierarchyHint hierarchy query of
+        Just (Telemetry.VertexHint vertex) -> Just vertex
+        _ -> Nothing
   ((disposition, removed), restored, _) <-
     first PublicBuildFailure
       ( withSession square 1 $ do
@@ -101,6 +145,9 @@ publicComponentWorkflow = do
           OnVertex _ -> True
           _ -> False
       , admittedPredicateCorrect = orient2d query queryRight queryTop == GT
+      , hierarchyTelemetryNearestCorrect =
+          hintedVertex /= Nothing
+            && fmap fst (Telemetry.nearestNeighbor square hintedVertex query) == Just seed
       , sessionInsertedVertex = disposition == Inserted
       , sessionRemovedVertex = maybe False (const True) removed
       , finalMeshValid = null (validateTriangulation restored)
@@ -125,6 +172,7 @@ assertExpected actual
       , rectangleVertices = 4
       , locatedResidentVertex = True
       , admittedPredicateCorrect = True
+      , hierarchyTelemetryNearestCorrect = True
       , sessionInsertedVertex = True
       , sessionRemovedVertex = True
       , finalMeshValid = True

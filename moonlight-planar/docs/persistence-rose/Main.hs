@@ -11,7 +11,7 @@ import Data.Bifunctor (first)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.Foldable (traverse_)
-import Moonlight.Triangulation.Exhibit.PersistenceRose
+import Moonlight.Planar.Exhibit.PersistenceRose
   ( PersistenceRoseError,
     PersistenceRoseScene,
     alphaEclipseReceipt,

@@ -1,6 +1,6 @@
 module Main (main) where
 
-import qualified Moonlight.Triangulation.BuildBench as BuildBench
+import qualified Moonlight.Planar.BuildBench as BuildBench
 
 main :: IO ()
 main = BuildBench.benchmarks

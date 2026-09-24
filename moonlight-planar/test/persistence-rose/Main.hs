@@ -3,7 +3,7 @@ module Main (main) where
 import Data.ByteString qualified as ByteString
 import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
 import Data.Word (Word8)
-import Moonlight.Triangulation.Exhibit.PersistenceRose
+import Moonlight.Planar.Exhibit.PersistenceRose
   ( AlphaEclipseReceipt (..),
     AlphaEclipseScene,
     PersistenceRoseAnimationReceipt (..),

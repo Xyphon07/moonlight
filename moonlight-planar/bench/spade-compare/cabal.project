@@ -1,5 +1,10 @@
 packages:
   ../..
+  ../../../moonlight-core
+  ../../../moonlight-pale
+  ../../../moonlight-algebra
+  ../../../moonlight-category
+  ../../../moonlight-linalg
   ../../../moonlight-homology
 
 -- No Template Haskell anywhere in this closure, so the dynamic way is pure

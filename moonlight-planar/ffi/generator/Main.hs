@@ -3,7 +3,7 @@ module Main (main) where
 import Data.Either (partitionEithers)
 import Data.Foldable (traverse_)
 import Data.Bifunctor (first)
-import Moonlight.Triangulation.Foreign.Contract.Render
+import Moonlight.Planar.Foreign.Contract.Render
   ( GeneratedFile (..)
   , generatedFiles
   )
@@ -109,7 +109,7 @@ renderObstruction :: GeneratorObstruction -> String
 renderObstruction obstruction =
   case obstruction of
     InvalidArguments ->
-      "usage: moonlight-triangulation-ffi-contract (write|check) PACKAGE_ROOT"
+      "usage: moonlight-planar-ffi-contract (write|check) PACKAGE_ROOT"
     GeneratedFileMissing path -> "missing generated file: " <> path
     GeneratedFileStale path -> "stale generated file: " <> path
     GeneratedFileReadFailed path message -> "cannot read generated file " <> path <> ": " <> message

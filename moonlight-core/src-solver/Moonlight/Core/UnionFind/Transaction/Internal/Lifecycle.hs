@@ -4,16 +4,19 @@
 module Moonlight.Core.UnionFind.Transaction.Internal.Lifecycle
   ( thawUnionFind,
     freezeUnionFind,
+    freezeCompressedUnionFind,
+    runCompressedUnionFindTransaction,
     materializeDenseBase,
   )
 where
 
-import Control.Monad.ST (ST)
+import Control.Monad.ST (ST, runST)
 import Data.Foldable (traverse_)
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IntMap
 import Data.STRef (newSTRef, readSTRef)
 import Data.Vector.Unboxed.Mutable qualified as Mutable
+import Data.Vector.Unboxed qualified as Vector
 import Moonlight.Core.Identifier.EGraph (ClassId (..))
 import Moonlight.Core.UnionFind.Internal.Types (UnionFind (..))
 import Moonlight.Core.UnionFind.Transaction.Internal.Policy
@@ -94,8 +97,52 @@ freezeUnionFind editor = do
         UnionFind
           { ufParent = parents,
             ufRank = ranks,
+            ufDenseCanonicalRoots = Vector.empty,
             ufNextFresh = nextFresh
           }
+
+-- | Freeze an editor whose parent relation has already been compressed. The
+-- immutable projection reuses the transaction's dense parent arena rather
+-- than allocating the same roots a second time.
+freezeCompressedUnionFind :: UnionFindEditor state -> ST state UnionFind
+freezeCompressedUnionFind editor = do
+  compressedUnionFind <- freezeUnionFind editor
+  store <- readSTRef (dense editor)
+  prefixLength <- densePresentPrefixLength store
+  let denseParentSlice =
+        Mutable.slice 0 prefixLength (parent store)
+  denseCanonicalRoots <-
+    if prefixLength == Mutable.length (parent store)
+      then Vector.unsafeFreeze denseParentSlice
+      else Vector.freeze denseParentSlice
+  pure
+    compressedUnionFind
+      { ufDenseCanonicalRoots = denseCanonicalRoots
+      }
+
+runCompressedUnionFindTransaction ::
+  UnionFind ->
+  (forall state. UnionFindEditor state -> ST state value) ->
+  (value, UnionFind)
+runCompressedUnionFindTransaction baseUnionFind action =
+  runST $ do
+    editor <- thawUnionFind baseUnionFind
+    value <- action editor
+    committed <- freezeCompressedUnionFind editor
+    pure (value, committed)
+
+densePresentPrefixLength :: DenseStore state -> ST state Int
+densePresentPrefixLength store =
+  leadingPrefixLength 0
+  where
+    limit = Mutable.length (present store)
+    leadingPrefixLength key
+      | key >= limit = pure limit
+      | otherwise = do
+          presentFlag <- Mutable.read (present store) key
+          if presentFlag == denseFlagSet
+            then leadingPrefixLength (key + 1)
+            else pure key
 
 materializeDenseBase ::
   UnionFindEditor state ->

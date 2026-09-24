@@ -6,6 +6,7 @@ where
 import qualified BoundarySpec as BoundarySpec
 import qualified CardinalitySpec as CardinalitySpec
 import qualified DenseKeySpec as DenseKeySpec
+import qualified DedupSpec as DedupSpec
 import qualified FiniteSpec as FiniteSpec
 import qualified IsoNormSpec as IsoNormSpec
 import qualified MapAccumSpec as MapAccumSpec
@@ -27,6 +28,7 @@ tests =
     [ BoundarySpec.tests,
       CardinalitySpec.tests,
       DenseKeySpec.tests,
+      DedupSpec.tests,
       FiniteSpec.tests,
       IsoNormSpec.tests,
       MapAccumSpec.tests,

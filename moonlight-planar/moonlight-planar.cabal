@@ -1,6 +1,6 @@
 cabal-version:       3.4
 name:                moonlight-planar
-version:             1.0.0.0
+version:             1.1.0.0
 synopsis:            Native hex regions, Delaunay meshes, and exact planar algebra.
 description:         Native packed hexagonal cell regions and Delaunay and
                      constrained Delaunay triangulation as lawful
@@ -19,9 +19,12 @@ description:         Native packed hexagonal cell regions and Delaunay and
                      refinement without duplicating those owners. Further opt-in
                      sublibraries expose the exact scalar core, Voronoi and
                      natural-neighbour dual, bounded concurrent join interpreter,
-                     and versioned serialization surface beside the broad main
-                     facade. The dependency-light hex component provides axial
-                     elements, arithmetic neighbours, wordwise Boolean algebra,
+                     and versioned serialization surface beside the dependency-light
+                     exact planar library; construction statistics and session
+                     verbs live in the opt-in build component. The
+                     dependency-light hex component provides axial
+                     elements, arithmetic neighbours, wordwise Boolean algebra
+                     and morphology, components, shortest distances,
                      restriction, and overlap-compatible gluing without DCEL or
                      polygon construction.
                      On GHC 9.14, a public cell-complex component interprets
@@ -39,10 +42,7 @@ category:            Geometry, Math
 homepage:            https://github.com/PaleRoses/moonlight
 bug-reports:         https://github.com/PaleRoses/moonlight/issues
 build-type:          Simple
-tested-with:         GHC == 9.8.4
-                     GHC == 9.10.3
-                     GHC == 9.12.4
-                     GHC == 9.14.1
+tested-with:         GHC == 9.14.1
 extra-doc-files:
   README.md
   CHANGELOG.md
@@ -62,8 +62,17 @@ extra-doc-files:
   docs/persistence-rose/moonlight-triangulation-alpha-eclipse.svg
   docs/persistence-rose/moonlight-triangulation-persistence-rose.svg
   docs/persistence-rose/moonlight-triangulation-persistence-rose.gif
+  docs/noctilucent-garden/README.md
+  docs/noctilucent-garden/noctilucent-garden.svg
+  docs/moonblade/README.md
+  docs/moonblade/moonblade.svg
+  docs/knight-rig/README.md
 extra-source-files:
   weeder.toml
+  docs/moonblade/rig.py
+  docs/knight-rig/rig.py
+  docs/knight-rig/package.py
+  test/public-components/compile-fail/*.hs
   -- The retained CSV, source receipt, and big-point SVG remain beside the
   -- benchmark but are not package inputs. The small documentation projection
   -- is the sole published chart and is declared above.
@@ -114,7 +123,7 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/PaleRoses/moonlight.git
-  tag:      moonlight-planar-1.0.0.0
+  tag:      moonlight-planar-1.1.0.0
   subdir:   moonlight-planar
 
 flag warnings-as-errors
@@ -145,23 +154,28 @@ common shared-properties
     ghc-options: -optlo-enable-new-pm=0
 
 -- ── the tower ────────────────────────────────────────────────────────────────
--- The implementation tower separates the public exact scalar core from the
+-- The implementation tower separates the trusted exact scalar core from the
 -- package-private paged-storage kernel. Both feed dcel-internal, followed by
 -- build-internal. Public dcel and build components are restrictions of those
--- owners: they reexport lawful modules without copying implementations or
--- publishing trusted constructors. Dual branches directly from the DCEL owner;
--- the apex owns only the genuine overlaps. The graph is acyclic and uses no
+-- owners: they expose lawful modules without copying implementations or
+-- publishing trusted constructors. Dual and construction branch independently
+-- from the DCEL owner; public build composes them for hints and telemetry;
+-- exact planar algebra depends only on read owners. The graph is acyclic and uses no
 -- @.hs-boot@ files.
 
+-- Exact arithmetic admits trusted finite/dyadic/normalized inputs inside the
+-- package. Public exact geometry exposes only its checked restrictions.
 library core
   import: shared-properties
-  visibility: public
+  visibility: private
   hs-source-dirs: src-core
   exposed-modules:
-    Moonlight.Triangulation.Scalar
-    Moonlight.Triangulation.LineSideInfo
-    Moonlight.Triangulation.Internal.Dyadic
-    Moonlight.Triangulation.Internal.ExactRational
+    Moonlight.Planar.Scalar
+    Moonlight.Planar.LineSideInfo
+    Moonlight.Planar.Point
+    Moonlight.Planar.Internal.Point
+    Moonlight.Planar.Internal.Dyadic
+    Moonlight.Planar.Internal.ExactRational
   build-depends:
     base >= 4.19 && < 5
     , deepseq >= 1.5 && < 1.6
@@ -178,6 +192,9 @@ library hex
     Moonlight.Hex.Coordinate
     Moonlight.Hex.Element
     Moonlight.Hex.Region
+    Moonlight.Hex.Topology
+  other-modules:
+    Moonlight.Hex.Region.Internal
   build-depends:
     base >= 4.19 && < 5
     , deepseq >= 1.5 && < 1.6
@@ -193,12 +210,14 @@ library storage-internal
   visibility: private
   hs-source-dirs: src-core
   exposed-modules:
-    Moonlight.Triangulation.Internal.PageDirectory
-    Moonlight.Triangulation.Internal.Paged
-    Moonlight.Triangulation.Internal.BoxedPaged
-    Moonlight.Triangulation.Internal.Growable
-    Moonlight.Triangulation.Internal.PackedIndex
-    Moonlight.Triangulation.Internal.FaceQueue
+    Moonlight.Planar.BuildStats
+    Moonlight.Planar.Internal.BuildStats
+    Moonlight.Planar.Internal.PageDirectory
+    Moonlight.Planar.Internal.Paged
+    Moonlight.Planar.Internal.BoxedPaged
+    Moonlight.Planar.Internal.Growable
+    Moonlight.Planar.Internal.PackedIndex
+    Moonlight.Planar.Internal.FaceQueue
   build-depends:
     base >= 4.19 && < 5
     , containers >= 0.8 && < 0.9
@@ -211,67 +230,59 @@ library dcel-internal
   visibility: private
   hs-source-dirs: src-dcel
   exposed-modules:
-    Moonlight.Triangulation.Alpha
-    Moonlight.Triangulation.Types
-    Moonlight.Triangulation.Math
-    Moonlight.Triangulation.Exact
-    Moonlight.Triangulation.Simplex
-    Moonlight.Triangulation.CellSet
-    Moonlight.Triangulation.Region
-    Moonlight.Triangulation.Valuation
-    Moonlight.Triangulation.Interop
-    Moonlight.Triangulation.Dcel
-    Moonlight.Triangulation.Canonical
-    Moonlight.Triangulation.Payload
-    Moonlight.Triangulation.JoinSemilattice
-    Moonlight.Triangulation.Handles.HandleDefs
-    Moonlight.Triangulation.Internal.HandleDefs
-    Moonlight.Triangulation.Handles.Dynamic
-    Moonlight.Triangulation.Handles.Scoped
-    Moonlight.Triangulation.Handles.Iterators.CircularIterator
-    Moonlight.Triangulation.Handles.Iterators.DynamicIterators
-    Moonlight.Triangulation.Handles.Iterators.FixedIterators
-    Moonlight.Triangulation.Handles.Iterators.HullIterator
-    Moonlight.Triangulation.PointLocation
-    Moonlight.Triangulation.Validation
-    Moonlight.Triangulation.Internal.Validation
-    Moonlight.Triangulation.FloodFillIterator
-    Moonlight.Triangulation.Internal.FloodFillIterator
-    Moonlight.Triangulation.IntersectionIterator
-    Moonlight.Triangulation.Internal.FaceProbe
-    Moonlight.Triangulation.Internal.CellSet
-    Moonlight.Triangulation.Internal.BoundaryCycle
-    Moonlight.Triangulation.Internal.ExactSegmentEvents
-    Moonlight.Triangulation.Internal.Region.Publication
-    Moonlight.Triangulation.Internal.Region.Types
-    Moonlight.Triangulation.Internal.Predicates
-    Moonlight.Triangulation.Internal.SegmentRelation
-    Moonlight.Triangulation.Internal.Types
-    Moonlight.Triangulation.Internal.Representation
-    Moonlight.Triangulation.Internal.PointIndex
-    Moonlight.Triangulation.Internal.Mutable
-    Moonlight.Triangulation.Internal.OperationState
-    Moonlight.Triangulation.Internal.Tournament
-    Moonlight.Triangulation.Internal.Probe
-    Moonlight.Triangulation.Internal.DcelOperations.CandidateArena
-    Moonlight.Triangulation.Internal.DcelOperations.Chain
-    Moonlight.Triangulation.Internal.DcelOperations.FlipRewrite
-    Moonlight.Triangulation.Internal.DcelOperations.FlipRule
-    Moonlight.Triangulation.Internal.DcelOperations.Hull
-    Moonlight.Triangulation.Internal.DcelOperations.Legalize
-    Moonlight.Triangulation.Internal.DcelOperations.Normalize
-    Moonlight.Triangulation.Internal.DcelOperations.Subdivide
-    Moonlight.Triangulation.Internal.DcelOperations.Twin
-    Moonlight.Triangulation.Internal.Canonical
+    Moonlight.Planar.Alpha
+    Moonlight.Planar.Types
+    Moonlight.Planar.Math
+    Moonlight.Planar.Exact
+    Moonlight.Planar.Curve
+    Moonlight.Planar.Curve.Authoring
+    Moonlight.Planar.Curve.Lowering
+    Moonlight.Planar.Curve.Region
+    Moonlight.Planar.Affine
+    Moonlight.Planar.Convex
+    Moonlight.Planar.Simplex
+    Moonlight.Planar.CellSet
+    Moonlight.Planar.Region
+    Moonlight.Planar.Valuation
+    Moonlight.Planar.Interop
+    Moonlight.Planar.Dcel
+    Moonlight.Planar.Payload
+    Moonlight.Planar.Handles.HandleDefs
+    Moonlight.Planar.Internal.HandleDefs
+    Moonlight.Planar.Handles.Dynamic
+    Moonlight.Planar.Handles.Scoped
+    Moonlight.Planar.Handles.Iterators.CircularIterator
+    Moonlight.Planar.Handles.Iterators.DynamicIterators
+    Moonlight.Planar.Handles.Iterators.FixedIterators
+    Moonlight.Planar.Handles.Iterators.HullIterator
+    Moonlight.Planar.PointLocation
+    Moonlight.Planar.Validation
+    Moonlight.Planar.Internal.Validation
+    Moonlight.Planar.FloodFillIterator
+    Moonlight.Planar.Internal.FloodFillIterator
+    Moonlight.Planar.IntersectionIterator
+    Moonlight.Planar.Internal.FaceProbe
+    Moonlight.Planar.Internal.CellSet
+    Moonlight.Planar.Internal.Incidence
+    Moonlight.Planar.Internal.BoundaryCycle
+    Moonlight.Planar.Internal.ExactSegmentEvents
+    Moonlight.Planar.Internal.Region.Publication
+    Moonlight.Planar.Internal.Region.Types
+    Moonlight.Planar.Internal.Region.Bounds
+    Moonlight.Planar.Internal.Predicates
+    Moonlight.Planar.Internal.SegmentRelation
+    Moonlight.Planar.Internal.Types
+    Moonlight.Planar.Internal.Representation
+    Moonlight.Planar.Internal.PointIndex
+    Moonlight.Planar.Internal.Tournament
   other-modules:
-    Moonlight.Triangulation.Internal.Region.Bounds
+    Moonlight.Planar.Internal.Exact
   build-depends:
     base >= 4.19 && < 5
     , containers >= 0.8 && < 0.9
     , deepseq >= 1.5 && < 1.6
     , primitive >= 0.9 && < 0.10
     , vector >= 0.13 && < 0.14
-    , vector-algorithms >= 0.9 && < 0.10
     , moonlight-planar:core
     , moonlight-planar:storage-internal
   ghc-options: -fexpose-all-unfoldings
@@ -283,37 +294,60 @@ library dcel
   import: shared-properties
   visibility: public
   reexported-modules:
-    Moonlight.Triangulation.Alpha
-    , Moonlight.Triangulation.Types
-    , Moonlight.Triangulation.Math
-    , Moonlight.Triangulation.Exact
-    , Moonlight.Triangulation.Simplex
-    , Moonlight.Triangulation.CellSet
-    , Moonlight.Triangulation.Region
-    , Moonlight.Triangulation.Valuation
-    , Moonlight.Triangulation.Interop
-    , Moonlight.Triangulation.Dcel
-    , Moonlight.Triangulation.Canonical
-    , Moonlight.Triangulation.Payload
-    , Moonlight.Triangulation.JoinSemilattice
-    , Moonlight.Triangulation.Handles.HandleDefs
-    , Moonlight.Triangulation.Handles.Dynamic
-    , Moonlight.Triangulation.Handles.Scoped
-    , Moonlight.Triangulation.Handles.Iterators.DynamicIterators
-    , Moonlight.Triangulation.Handles.Iterators.FixedIterators
-    , Moonlight.Triangulation.Handles.Iterators.HullIterator
-    , Moonlight.Triangulation.PointLocation
-    , Moonlight.Triangulation.Validation
-    , Moonlight.Triangulation.FloodFillIterator
-    , Moonlight.Triangulation.IntersectionIterator
+    Moonlight.Planar.Scalar
+    , Moonlight.Planar.LineSideInfo
+    , Moonlight.Planar.Point
+    , Moonlight.Planar.BuildStats
+    , Moonlight.Planar.Alpha
+    , Moonlight.Planar.Types
+    , Moonlight.Planar.Math
+    , Moonlight.Planar.Exact
+    , Moonlight.Planar.Curve
+    , Moonlight.Planar.Curve.Authoring
+    , Moonlight.Planar.Curve.Lowering
+    , Moonlight.Planar.Curve.Region
+    , Moonlight.Planar.Affine
+    , Moonlight.Planar.Convex
+    , Moonlight.Planar.Simplex
+    , Moonlight.Planar.CellSet
+    , Moonlight.Planar.Region
+    , Moonlight.Planar.Valuation
+    , Moonlight.Planar.Interop
+    , Moonlight.Planar.Dcel
+    , Moonlight.Planar.Payload
+    , Moonlight.Planar.Handles.HandleDefs
+    , Moonlight.Planar.Handles.Dynamic
+    , Moonlight.Planar.Handles.Scoped
+    , Moonlight.Planar.Handles.Iterators.DynamicIterators
+    , Moonlight.Planar.Handles.Iterators.FixedIterators
+    , Moonlight.Planar.Handles.Iterators.HullIterator
+    , Moonlight.Planar.PointLocation
+    , Moonlight.Planar.Validation
+    , Moonlight.Planar.FloodFillIterator
+    , Moonlight.Planar.IntersectionIterator
   build-depends:
     moonlight-planar:dcel-internal
+    , moonlight-planar:core
+    , moonlight-planar:storage-internal
 
--- An ExactCellSet already carries every handle and closure witness needed to
--- interpret it as a generic finite cell complex. This component is the
--- canonical owner of that interpretation and of the alpha-birth lowering into
--- Homology. It deliberately remains outside the portable geometry tower
--- because its Homology dependency requires GHC 9.14.
+-- Optional ordered painting and pure SVG publication. Geometry-only consumers
+-- do not inherit a renderer or an additional geometric representation.
+library illustration
+  import: shared-properties
+  visibility: public
+  hs-source-dirs: src-illustration
+  exposed-modules:
+    Moonlight.Planar.Illustration
+    Moonlight.Planar.Illustration.Svg
+    Moonlight.Planar.Illustration.Motif
+    Moonlight.Planar.Illustration.Layout
+  build-depends:
+    base >= 4.19 && < 5
+    , containers >= 0.8 && < 0.9
+    , moonlight-planar:dcel
+
+-- An ExactCellSet already carries the incidence required for generic cellular
+-- lowering. This separate Homology interpretation requires GHC 9.14.
 library cell-complex
   import: shared-properties
   visibility: public
@@ -322,8 +356,8 @@ library cell-complex
     TypeFamilies
   exposed-modules:
     Moonlight.Hex.CellComplex
-    Moonlight.Triangulation.CellComplex
-    Moonlight.Triangulation.LabelledComplex
+    Moonlight.Planar.CellComplex
+    Moonlight.Planar.LabelledComplex
   if impl(ghc < 9.14)
     buildable: False
   build-depends:
@@ -345,7 +379,7 @@ library zigzag
   visibility: public
   hs-source-dirs: src-zigzag
   exposed-modules:
-    Moonlight.Triangulation.Zigzag
+    Moonlight.Planar.Zigzag
   if impl(ghc < 9.14)
     buildable: False
   build-depends:
@@ -363,44 +397,59 @@ library build-internal
   visibility: private
   hs-source-dirs: src-build
   exposed-modules:
-    Moonlight.Triangulation.BulkLoad
-    Moonlight.Triangulation.Internal.BulkLoad
-    Moonlight.Triangulation.Removal
-    Moonlight.Triangulation.Session
-    Moonlight.Triangulation.Internal.Session
-    Moonlight.Triangulation.Cdt
-    Moonlight.Triangulation.Refinement
-    Moonlight.Triangulation.SetAlgebra
-    Moonlight.Triangulation.Internal.Cdt.Build
-    Moonlight.Triangulation.Internal.Cdt.Query
-    Moonlight.Triangulation.Internal.Cdt.Types
-    Moonlight.Triangulation.Internal.Cdt.Union
-    Moonlight.Triangulation.Internal.Join
-    Moonlight.Triangulation.Internal.Join.Seam
+    Moonlight.Planar.Canonical
+    Moonlight.Planar.Internal.Canonical
+    Moonlight.Planar.Internal.Mutable
+    Moonlight.Planar.Internal.OperationState
+    Moonlight.Planar.Internal.Probe
+    Moonlight.Planar.Internal.DcelOperations.FlipRewrite
+    Moonlight.Planar.Internal.DcelOperations.Subdivide
+    Moonlight.Planar.Internal.DcelOperations.Twin
+    Moonlight.Planar.Internal.DcelOperations.FlipRule
+    Moonlight.Planar.Internal.DcelOperations.CandidateArena
+    Moonlight.Planar.Internal.DcelOperations.Legalize
+    Moonlight.Planar.Internal.DcelOperations.Hull
+    Moonlight.Planar.Internal.DcelOperations.Normalize
+    Moonlight.Planar.Internal.DcelOperations.Chain
+    Moonlight.Planar.BulkLoad
+    Moonlight.Planar.Internal.BulkLoad
+    Moonlight.Planar.Removal
+    Moonlight.Planar.Session
+    Moonlight.Planar.Internal.Session
+    Moonlight.Planar.Cdt
+    Moonlight.Planar.Refinement
+    Moonlight.Planar.SetAlgebra
+    Moonlight.Planar.Internal.Cdt.Build
+    Moonlight.Planar.Internal.Cdt.Query
+    Moonlight.Planar.Internal.Cdt.Types
+    Moonlight.Planar.Internal.Cdt.Union
+    Moonlight.Planar.Internal.Join
+    Moonlight.Planar.Internal.Join.Seam
   other-modules:
-    Moonlight.Triangulation.Insertion
-    Moonlight.Triangulation.Internal.Capacity
-    Moonlight.Triangulation.Internal.Cdt.Admission
-    Moonlight.Triangulation.Internal.Cdt.Batch
-    Moonlight.Triangulation.Internal.Cdt.Combinators
-    Moonlight.Triangulation.Internal.Cdt.Corridor
-    Moonlight.Triangulation.Internal.Cdt.Corridor.Trace
-    Moonlight.Triangulation.Internal.Cdt.Recovery
-    Moonlight.Triangulation.Internal.Cdt.Region
-    Moonlight.Triangulation.Internal.Cdt.Segment
-    Moonlight.Triangulation.Internal.Cdt.Site
-    Moonlight.Triangulation.Internal.Cdt.Split
-    Moonlight.Triangulation.Internal.Excision
-    Moonlight.Triangulation.Internal.Location
-    Moonlight.Triangulation.Internal.CircleSweep
-    Moonlight.Triangulation.Internal.Refinement
-    Moonlight.Triangulation.Internal.Transaction
-    Moonlight.Triangulation.Internal.Join.Plan
-    Moonlight.Triangulation.Internal.Join.SiteSet
+    Moonlight.Planar.Insertion
+    Moonlight.Planar.Internal.Capacity
+    Moonlight.Planar.Internal.Cdt.Admission
+    Moonlight.Planar.Internal.Cdt.Batch
+    Moonlight.Planar.Internal.Cdt.Combinators
+    Moonlight.Planar.Internal.Cdt.Corridor
+    Moonlight.Planar.Internal.Cdt.Corridor.Trace
+    Moonlight.Planar.Internal.Cdt.Recovery
+    Moonlight.Planar.Internal.Cdt.Region
+    Moonlight.Planar.Internal.Cdt.Segment
+    Moonlight.Planar.Internal.Cdt.Site
+    Moonlight.Planar.Internal.Cdt.Split
+    Moonlight.Planar.Internal.Excision
+    Moonlight.Planar.Internal.Location
+    Moonlight.Planar.Internal.CircleSweep
+    Moonlight.Planar.Internal.Refinement
+    Moonlight.Planar.Internal.Transaction
+    Moonlight.Planar.Internal.Join.Plan
+    Moonlight.Planar.Internal.Join.SiteSet
   build-depends:
     base >= 4.19 && < 5
     , containers >= 0.8 && < 0.9
     , deepseq >= 1.5 && < 1.6
+    , moonlight-algebra:join >= 0.1.1 && < 0.2
     , primitive >= 0.9 && < 0.10
     , vector >= 0.13 && < 0.14
     , vector-algorithms >= 0.9 && < 0.10
@@ -411,19 +460,33 @@ library build-internal
 
 -- Public construction surface over the private kernel. Trusted admitted-input
 -- and local-transaction entries live only in build-internal; the modules below
--- are their typed, immutable restrictions.
+-- are their typed, immutable restrictions. Hints and telemetry compose the
+-- independent construction and dual-query owners here, not inside either one.
 library build
   import: shared-properties
   visibility: public
+  hs-source-dirs: src-build-public
+  exposed-modules:
+    Moonlight.Planar.HintGenerator
+    Moonlight.Planar.Telemetry
   reexported-modules:
-    Moonlight.Triangulation.BulkLoad
-    , Moonlight.Triangulation.Removal
-    , Moonlight.Triangulation.Session
-    , Moonlight.Triangulation.Cdt
-    , Moonlight.Triangulation.Refinement
-    , Moonlight.Triangulation.SetAlgebra
+    Moonlight.Planar.Canonical
+    , Moonlight.Planar.BulkLoad
+    , Moonlight.Planar.Removal
+    , Moonlight.Planar.Session
+    , Moonlight.Planar.Cdt
+    , Moonlight.Planar.Refinement
+    , Moonlight.Planar.SetAlgebra
   build-depends:
-    moonlight-planar:build-internal
+    base >= 4.19 && < 5
+    , deepseq >= 1.5 && < 1.6
+    , vector >= 0.13 && < 0.14
+    , moonlight-planar:core
+    , moonlight-planar:build-internal
+    , moonlight-planar:dcel-internal
+    , moonlight-planar:dual
+    , moonlight-planar:storage-internal
+  ghc-options: -fexpose-all-unfoldings
 
 -- Concurrency is an effect boundary over the pure build planner. Keeping it in
 -- its own sublibrary prevents @async@ from infecting the geometry core.
@@ -432,25 +495,41 @@ library parallel
   visibility: public
   hs-source-dirs: src-parallel
   exposed-modules:
-    Moonlight.Triangulation.Parallel
+    Moonlight.Planar.Parallel
   build-depends:
     base >= 4.19 && < 5
     , async >= 2.2 && < 2.3
     , deepseq >= 1.5 && < 1.6
+    , moonlight-algebra:join >= 0.1.1 && < 0.2
     , moonlight-planar:build-internal
     , moonlight-planar:dcel-internal
   ghc-options: -fexpose-all-unfoldings
 
--- Its own sublibrary so that @binary@ and @bytestring@ stay out of the minimal
--- geometry core.  This is a dependency boundary, not a size split; it replaces
--- the former @serialization@ flag, which could not be checked by a single build.
-library serialize
+-- Canonical hex bytes retain the bottom component's small dependency cone.
+library hex-serialize
   import: shared-properties
   visibility: public
   hs-source-dirs: src-serialize
   exposed-modules:
     Moonlight.Hex.Serialization
-    Moonlight.Triangulation.Serialization
+  build-depends:
+    base >= 4.19 && < 5
+    , binary >= 0.8 && < 0.9
+    , bytestring >= 0.12 && < 0.13
+    , deepseq >= 1.5 && < 1.6
+    , transformers >= 0.6 && < 0.7
+    , vector >= 0.13 && < 0.14
+    , moonlight-planar:hex
+  ghc-options: -fexpose-all-unfoldings
+
+-- Planar bytes remain separate so a native-hex consumer does not build
+-- the DCEL merely to decode one packed region.
+library serialize
+  import: shared-properties
+  visibility: public
+  hs-source-dirs: src-serialize
+  exposed-modules:
+    Moonlight.Planar.Serialization
   build-depends:
     base >= 4.19 && < 5
     , binary >= 0.8 && < 0.9
@@ -459,7 +538,6 @@ library serialize
     , deepseq >= 1.5 && < 1.6
     , transformers >= 0.6 && < 0.7
     , vector >= 0.13 && < 0.14
-    , moonlight-planar:hex
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
     , moonlight-planar:storage-internal
@@ -474,11 +552,11 @@ library dual
   visibility: public
   hs-source-dirs: src-dual
   exposed-modules:
-    Moonlight.Triangulation.Voronoi
-    Moonlight.Triangulation.Voronoi.Handles
-    Moonlight.Triangulation.Interpolation
+    Moonlight.Planar.Voronoi
+    Moonlight.Planar.Voronoi.Handles
+    Moonlight.Planar.Interpolation
   other-modules:
-    Moonlight.Triangulation.Internal.InterpolationWorkspace
+    Moonlight.Planar.Internal.InterpolationWorkspace
   build-depends:
     base >= 4.19 && < 5
     , deepseq >= 1.5 && < 1.6
@@ -496,10 +574,9 @@ library overlay-internal
   visibility: private
   hs-source-dirs: src-overlay
   exposed-modules:
-    Moonlight.Triangulation.Embedding
-    Moonlight.Triangulation.Internal.Overlay.Arrangement
-    Moonlight.Triangulation.Internal.Overlay.Resident
-    Moonlight.Triangulation.Internal.Overlay.Types
+    Moonlight.Planar.Embedding
+    Moonlight.Planar.Internal.Overlay.Arrangement
+    Moonlight.Planar.Internal.Overlay.Types
   build-depends:
     base >= 4.19 && < 5
     , containers >= 0.8 && < 0.9
@@ -507,7 +584,6 @@ library overlay-internal
     , vector >= 0.13 && < 0.14
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
-    , moonlight-planar:build-internal
     , moonlight-planar:storage-internal
 
 library
@@ -516,58 +592,51 @@ library
     src-public
   exposed-modules:
     Moonlight.Hex.Planar
-    Moonlight.Triangulation
-    Moonlight.Triangulation.HintGenerator
-    Moonlight.Triangulation.Minkowski
-    Moonlight.Triangulation.Overlay
-    Moonlight.Triangulation.PowerDiagram
-    Moonlight.Triangulation.RegularAlpha
-  -- The default library is the broad surface. Scoped/owning handles are the safe
+    Moonlight.Planar.Minkowski
+    Moonlight.Planar.Overlay
+    Moonlight.Planar.PowerDiagram
+    Moonlight.Planar.RegularAlpha
+  -- The default library is exact planar algebra. Scoped/owning handles are the safe
   -- path; Dcel is the explicitly unchecked fixed-index kernel. These are the
   -- exact focused-component modules, not facade copies.
   reexported-modules:
-    Moonlight.Triangulation.Alpha
-    , Moonlight.Triangulation.Types
-    , Moonlight.Triangulation.Math
-    , Moonlight.Triangulation.Exact
-    , Moonlight.Triangulation.CellSet
-    , Moonlight.Triangulation.Region
-    , Moonlight.Triangulation.Valuation
-    , Moonlight.Triangulation.Interop
-    , Moonlight.Triangulation.Dcel
-    , Moonlight.Triangulation.Canonical
-    , Moonlight.Triangulation.Payload
-    , Moonlight.Triangulation.JoinSemilattice
-    , Moonlight.Triangulation.Handles.HandleDefs
-    , Moonlight.Triangulation.Handles.Dynamic
-    , Moonlight.Triangulation.Handles.Scoped
-    , Moonlight.Triangulation.Handles.Iterators.DynamicIterators
-    , Moonlight.Triangulation.Handles.Iterators.FixedIterators
-    , Moonlight.Triangulation.Handles.Iterators.HullIterator
-    , Moonlight.Triangulation.PointLocation
-    , Moonlight.Triangulation.Validation
-    , Moonlight.Triangulation.FloodFillIterator
-    , Moonlight.Triangulation.IntersectionIterator
-    , Moonlight.Triangulation.BulkLoad
-    , Moonlight.Triangulation.Removal
-    , Moonlight.Triangulation.Session
-    , Moonlight.Triangulation.Cdt
-    , Moonlight.Triangulation.Refinement
-    , Moonlight.Triangulation.SetAlgebra
-    , Moonlight.Triangulation.Voronoi
-    , Moonlight.Triangulation.Voronoi.Handles
-    , Moonlight.Triangulation.Interpolation
-    , Moonlight.Triangulation.Embedding
+    Moonlight.Planar.Scalar
+    , Moonlight.Planar.LineSideInfo
+    , Moonlight.Planar.Point
+    , Moonlight.Planar.BuildStats
+    , Moonlight.Planar.Alpha
+    , Moonlight.Planar.Types
+    , Moonlight.Planar.Math
+    , Moonlight.Planar.Exact
+    , Moonlight.Planar.Convex
+    , Moonlight.Planar.CellSet
+    , Moonlight.Planar.Region
+    , Moonlight.Planar.Valuation
+    , Moonlight.Planar.Interop
+    , Moonlight.Planar.Dcel
+    , Moonlight.Planar.Payload
+    , Moonlight.Planar.Handles.HandleDefs
+    , Moonlight.Planar.Handles.Dynamic
+    , Moonlight.Planar.Handles.Scoped
+    , Moonlight.Planar.Handles.Iterators.DynamicIterators
+    , Moonlight.Planar.Handles.Iterators.FixedIterators
+    , Moonlight.Planar.Handles.Iterators.HullIterator
+    , Moonlight.Planar.PointLocation
+    , Moonlight.Planar.Validation
+    , Moonlight.Planar.FloodFillIterator
+    , Moonlight.Planar.IntersectionIterator
+    , Moonlight.Planar.Embedding
   other-modules:
-    Moonlight.Triangulation.Internal.Minkowski.Convex
-    Moonlight.Triangulation.Internal.Minkowski.Types
-    Moonlight.Triangulation.Internal.PowerDiagram.Edit
-    Moonlight.Triangulation.Internal.PowerDiagram.Generator
-    Moonlight.Triangulation.Internal.PowerDiagram.Hull
-    Moonlight.Triangulation.Internal.PowerDiagram.Locality
-    Moonlight.Triangulation.Internal.PowerDiagram.Model
-    Moonlight.Triangulation.Internal.PowerDiagram.Projection
-    Moonlight.Triangulation.Internal.PowerDiagram.Section
+    Moonlight.Planar.Internal.Minkowski.Operations
+    Moonlight.Planar.Internal.Minkowski.Types
+    Moonlight.Planar.Internal.PowerDiagram.Edit
+    Moonlight.Planar.Internal.PowerDiagram.Generator
+    Moonlight.Planar.Internal.PowerDiagram.Hull
+    Moonlight.Planar.Internal.PowerDiagram.Locality
+    Moonlight.Planar.Internal.PowerDiagram.Mass
+    Moonlight.Planar.Internal.PowerDiagram.Model
+    Moonlight.Planar.Internal.PowerDiagram.Projection
+    Moonlight.Planar.Internal.PowerDiagram.Section
   build-depends:
     base >= 4.19 && < 5
     , containers >= 0.8 && < 0.9
@@ -576,8 +645,6 @@ library
     , moonlight-planar:hex
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
-    , moonlight-planar:build-internal
-    , moonlight-planar:dual
     , moonlight-planar:overlay-internal
     , moonlight-planar:storage-internal
   ghc-options: -fexpose-all-unfoldings
@@ -587,18 +654,19 @@ library ffi
   visibility: private
   hs-source-dirs: ffi/abi
   exposed-modules:
-    Moonlight.Triangulation.Foreign.Boundary
-    Moonlight.Triangulation.Foreign.Contract
-    Moonlight.Triangulation.Foreign.Contract.Render
-    Moonlight.Triangulation.Foreign.Mesh
-    Moonlight.Triangulation.Foreign.Morphology
-    Moonlight.Triangulation.Foreign.Obstruction
-    Moonlight.Triangulation.Foreign.Region
+    Moonlight.Planar.Foreign.Boundary
+    Moonlight.Planar.Foreign.Contract
+    Moonlight.Planar.Foreign.Contract.Render
+    Moonlight.Planar.Foreign.Mesh
+    Moonlight.Planar.Foreign.Morphology
+    Moonlight.Planar.Foreign.Obstruction
+    Moonlight.Planar.Foreign.Region
   build-depends:
     base >= 4.19 && < 5
     , containers >= 0.8 && < 0.9
     , vector >= 0.13 && < 0.14
     , moonlight-planar
+    , moonlight-planar:core
     , moonlight-planar:build-internal
     , moonlight-planar:dcel-internal
 
@@ -607,7 +675,7 @@ foreign-library moonlight-triangulation-c
   type: native-shared
   hs-source-dirs: ffi/exports
   other-modules:
-    Moonlight.Triangulation.Foreign.Exports
+    Moonlight.Planar.Foreign.Exports
   c-sources:
     ffi/cbits/moonlight_runtime.c
   include-dirs:
@@ -616,7 +684,7 @@ foreign-library moonlight-triangulation-c
     moonlight_triangulation.h
   build-depends:
     base >= 4.19 && < 5
-    , moonlight-planar:ffi >= 1.0 && < 1.1
+    , moonlight-planar:ffi
   ghc-options: -threaded
   if os(windows)
     options: standalone
@@ -626,7 +694,7 @@ foreign-library moonlight-triangulation-c
   if os(linux)
     lib-version-info: 2:0:0
 
-executable moonlight-triangulation-ffi-contract
+executable moonlight-planar-ffi-contract
   import: shared-properties
   hs-source-dirs: ffi/generator
   main-is: Main.hs
@@ -634,7 +702,7 @@ executable moonlight-triangulation-ffi-contract
     base >= 4.19 && < 5
     , directory >= 1.3 && < 1.4
     , filepath >= 1.4 && < 1.6
-    , moonlight-planar:ffi >= 1.0 && < 1.1
+    , moonlight-planar:ffi
 
 -- ── test slices ──────────────────────────────────────────────────────────────
 
@@ -650,18 +718,55 @@ common triangulation-test-properties
   build-depends:
     base >= 4.19 && < 5
     , vector >= 0.13 && < 0.14
-    , moonlight-planar
 
 common triangulation-test-support-slice
   other-modules: Support
+  build-depends:
+    containers >= 0.8 && < 0.9
+    , moonlight-planar:dcel
+
+
+common triangulation-mesh-fixture-slice
+  other-modules: Moonlight.Planar.MeshFixtures
+  build-depends:
+    containers >= 0.8 && < 0.9
+    , moonlight-planar:build
+
+common triangulation-overlay-fixture-slice
+  other-modules: Moonlight.Planar.OverlayFixtures
+  build-depends:
+    containers >= 0.8 && < 0.9
+    , moonlight-planar
 
 common triangulation-native-test-slice
+  import: triangulation-mesh-fixture-slice, triangulation-overlay-fixture-slice
   other-modules:
-    Moonlight.Triangulation.NativeSpec
-    Moonlight.Triangulation.FilteredPredicateOptimizationSpec
-    Moonlight.Triangulation.ExactEmbeddingSpec
-    Moonlight.Triangulation.OverlaySpec
-    Moonlight.Triangulation.RegionSpec
+    Moonlight.Planar.ConstructionSpec
+    Moonlight.Planar.ValidationSpec
+    Moonlight.Planar.PredicateSpec
+    Moonlight.Planar.NearestSpec
+    Moonlight.Planar.LocationSpec
+    Moonlight.Planar.EditSpec
+    Moonlight.Planar.DcelSpec
+    Moonlight.Planar.PayloadSpec
+    Moonlight.Planar.PayloadTypeErrors
+    Moonlight.Planar.ConstraintSpec
+    Moonlight.Planar.ConstrainedJoinSpec
+    Moonlight.Planar.ConstrainedSeamSpec
+    Moonlight.Planar.RefinementAssertions
+    Moonlight.Planar.RefinementSpec
+    Moonlight.Planar.AlphaSpec
+    Moonlight.Planar.BoundaryFixtures
+    Moonlight.Planar.PayloadFixtures
+    Moonlight.Planar.IncidenceSpec
+    Moonlight.Planar.FilteredPredicateOptimizationSpec
+    Moonlight.Planar.ExactEmbeddingSpec
+    Moonlight.Planar.ExactSegmentEventsSpec
+    Moonlight.Planar.OverlaySpec
+    Moonlight.Planar.OverlaySelectionSpec
+    Moonlight.Planar.OverlayPublicationSpec
+    Moonlight.Planar.OverlayAssertions
+    Moonlight.Planar.RegionSpec
   -- The RTS options this module needs are named on the SUITES rather than
   -- here, which is the one place the slice-owns-its-requirements rule cannot
   -- hold.  @-with-rtsopts@ is CONCATENATED by GHC across repetitions, so a
@@ -675,88 +780,130 @@ common triangulation-native-test-slice
     , deepseq >= 1.5 && < 1.6
     , primitive >= 0.9 && < 0.10
     , moonlight-planar:core
+    , transformers >= 0.6 && < 0.7
     , moonlight-planar:dcel-internal
     , moonlight-planar:build-internal
     , moonlight-planar:dual
     , moonlight-planar:overlay-internal
     , moonlight-planar:storage-internal
+    , moonlight-planar
 
 common triangulation-serialization-test-slice
-  other-modules: Moonlight.Triangulation.SerializationSpec
+  other-modules:
+    Moonlight.Planar.SerializationSpec
+    Moonlight.Planar.SerializationV6Oracle
+    Moonlight.Planar.SerializationFixtures
   build-depends:
     binary >= 0.8 && < 0.9
     , bytestring >= 0.12 && < 0.13
+    , containers >= 0.8 && < 0.9
     , deepseq >= 1.5 && < 1.6
     , moonlight-planar:dcel-internal
+    , moonlight-planar:build-internal
     , moonlight-planar:serialize
+    , moonlight-planar:storage-internal
 
 -- The operand meshes both algebra slices are stated over.  It sits at the
 -- surface tier with them, so the fixtures cannot quietly acquire a
 -- machine-room dependency that the law slice would then inherit.
 common triangulation-algebra-fixture-slice
-  other-modules: Moonlight.Triangulation.AlgebraFixtures
+  import: triangulation-mesh-fixture-slice
+  other-modules: Moonlight.Planar.AlgebraFixtures
   build-depends: containers >= 0.8 && < 0.9
+    , moonlight-planar
+    , moonlight-planar:build
 
--- The finite-set laws, stated against the facade a caller has.
+-- The finite-set laws, stated against the public construction owner.
 common triangulation-algebra-law-slice
-  other-modules: Moonlight.Triangulation.AlgebraSpec
+  other-modules: Moonlight.Planar.AlgebraSpec
   build-depends: containers >= 0.8 && < 0.9
+    , moonlight-algebra:join
+    , moonlight-planar
+    , moonlight-planar:build
 
--- Exact planar Boolean laws, stated exclusively through the public facade.
+-- Exact planar Boolean laws, stated through the public exact owners.
 common triangulation-region-algebra-law-slice
-  other-modules: Moonlight.Triangulation.RegionAlgebraSpec
+  import: triangulation-overlay-fixture-slice
+  other-modules: Moonlight.Planar.RegionAlgebraSpec
   build-depends: containers >= 0.8 && < 0.9
+    , moonlight-planar
+    , moonlight-planar:build
 
 -- Exact intrinsic-volume laws over the resident cell carrier and published
 -- region view.
 common triangulation-valuation-law-slice
-  other-modules: Moonlight.Triangulation.ValuationSpec
+  import: triangulation-overlay-fixture-slice
+  other-modules: Moonlight.Planar.ValuationSpec
   build-depends:
     containers >= 0.8 && < 0.9
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
+    , moonlight-planar
 
 common triangulation-minkowski-law-slice
-  other-modules: Moonlight.Triangulation.MinkowskiSpec
+  other-modules:
+    Moonlight.Planar.MinkowskiSpec
+    Moonlight.Planar.ConvexSpec
   build-depends:
     moonlight-planar:core
     , moonlight-planar:dcel-internal
+    , moonlight-planar
 
 -- A test-only endpoint-reconstruction oracle demonstrating why the production
 -- clipping owner retains original affine source lines.
 common triangulation-exact-clip-retention-law-slice
-  other-modules: Moonlight.Triangulation.ExactClipRetentionSpec
+  other-modules: Moonlight.Planar.ExactClipRetentionSpec
   build-depends:
     moonlight-planar:core
     , moonlight-planar:dcel-internal
 
+-- The fixed-width in-circle worker cross-checked against the arbitrary-
+-- precision determinant on random, subnormal, wide-exponent, exactly
+-- cocircular and one-ulp-off quadrilaterals.
+common triangulation-in-circle-fixed-width-law-slice
+  other-modules: Moonlight.Planar.InCircleFixedWidthSpec
+  build-depends:
+    moonlight-planar:core
+
 common triangulation-power-diagram-law-slice
-  other-modules: Moonlight.Triangulation.PowerDiagramSpec
+  other-modules:
+    Moonlight.Planar.RegularTopologySpec
+    Moonlight.Planar.RegularEditSpec
+    Moonlight.Planar.RegularAlphaSpec
+    Moonlight.Planar.PowerDiagramSpec
+    Moonlight.Planar.PowerFixtures
+    Moonlight.Planar.PowerMassSpec
   build-depends:
     containers >= 0.8 && < 0.9
-    , moonlight-planar:core
-    , moonlight-planar:dcel-internal
+    , moonlight-planar
 
 common triangulation-layer-operations-law-slice
-  other-modules: Moonlight.Triangulation.LayerOperationsSpec
+  import: triangulation-overlay-fixture-slice
+  other-modules:
+    Moonlight.Planar.LayerOperationsSpec
+    Moonlight.Planar.ExactIncidencePublicationSpec
   build-depends:
     containers >= 0.8 && < 0.9
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
+    , moonlight-planar:storage-internal
+    , moonlight-planar
 
 -- The agreement between the seam schedule and the reference rebuild.  It names
 -- an internal schedule, so it reaches below the wall and travels with the
 -- schedule it names: a replacement kernel carries its own copy of this.
 common triangulation-algebra-schedule-slice
-  other-modules: Moonlight.Triangulation.ScheduleAgreementSpec
+  other-modules: Moonlight.Planar.ScheduleAgreementSpec
   build-depends: moonlight-planar:build-internal
+    , moonlight-planar
 
 common triangulation-parallel-test-slice
-  other-modules: Moonlight.Triangulation.ParallelSpec
+  other-modules: Moonlight.Planar.ParallelSpec
   ghc-options: -threaded -rtsopts
   build-depends: moonlight-planar:parallel
+    , moonlight-planar:build
 
-test-suite moonlight-triangulation-cell-complex-test
+test-suite moonlight-planar-cell-complex-test
   import: shared-properties
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -775,13 +922,14 @@ test-suite moonlight-triangulation-cell-complex-test
     , moonlight-planar:build-internal
     , moonlight-planar:cell-complex
     , moonlight-planar:dcel-internal
+    , moonlight-planar:storage-internal
     , tasty >= 1.4 && < 1.6
     , tasty-hunit >= 0.10 && < 0.11
     , vector >= 0.13 && < 0.14
 
 -- Public activation ingestion, labelled adjacent-union correspondences, and
 -- exact non-monotone persistence, including its compiled documentation path.
-test-suite moonlight-triangulation-zigzag-test
+test-suite moonlight-planar-zigzag-test
   import: shared-properties
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -789,7 +937,7 @@ test-suite moonlight-triangulation-zigzag-test
     test/zigzag
     docs/examples
   other-modules:
-    Moonlight.Triangulation.Example.ActivationZigzag
+    Moonlight.Planar.Example.ActivationZigzag
   if impl(ghc < 9.14)
     buildable: False
   build-depends:
@@ -803,8 +951,8 @@ test-suite moonlight-triangulation-zigzag-test
     , vector >= 0.13 && < 0.14
 
 -- Canonical documentation examples compile exclusively against the public
--- facade and retain their expected semantic summaries as executable checks.
-test-suite moonlight-triangulation-examples-test
+-- components and retain their expected semantic summaries as executable checks.
+test-suite moonlight-planar-examples-test
   import: triangulation-test-properties
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -812,21 +960,26 @@ test-suite moonlight-triangulation-examples-test
     test/examples
     docs/examples
   other-modules:
-    Moonlight.Triangulation.Example.AlphaBoundary
-    Moonlight.Triangulation.Example.ConstrainedRegion
-    Moonlight.Triangulation.Example.PlanarRegion
-    Moonlight.Triangulation.Example.SetAlgebra
+    Moonlight.Planar.Example.AlphaBoundary
+    Moonlight.Planar.Example.ConstrainedRegion
+    Moonlight.Planar.Example.PlanarRegion
+    Moonlight.Planar.Example.SetAlgebra
   build-depends: containers >= 0.8 && < 0.9
+    , moonlight-planar
+    , moonlight-planar:build
+    , moonlight-planar:core
+    , moonlight-planar:dcel
+    , moonlight-planar:dual
 
 -- One behavioral owner for exact clipping, power cells, morphology, affine
 -- envelopes, coverage, n-ary overlay, and mass. The law slices remain
 -- independently reusable by the compile-only coherence component.
-test-suite moonlight-triangulation-exact-planar-test
+test-suite moonlight-planar-exact-planar-test
   import:
     triangulation-test-properties,
     triangulation-test-support-slice,
-    triangulation-algebra-fixture-slice,
     triangulation-exact-clip-retention-law-slice,
+    triangulation-in-circle-fixed-width-law-slice,
     triangulation-minkowski-law-slice,
     triangulation-power-diagram-law-slice,
     triangulation-layer-operations-law-slice
@@ -839,17 +992,82 @@ test-suite moonlight-triangulation-exact-planar-test
 
 -- A real external shape over only the two focused public components. It proves
 -- that immutable observation and construction/editing compose without either
--- the broad facade or a private implementation token.
-test-suite moonlight-triangulation-public-components-test
+-- an umbrella facade or a private implementation token.
+test-suite moonlight-planar-public-components-test
   import: shared-properties
   type: exitcode-stdio-1.0
   main-is: Main.hs
   hs-source-dirs: test/public-components
+  other-modules:
+    Moonlight.Planar.AdmissionSpec
+    Moonlight.Planar.AdmissionTypeErrors
   build-depends:
     base >= 4.19 && < 5
+    , containers >= 0.6 && < 0.9
+    , deepseq >= 1.5 && < 1.6
     , vector >= 0.13 && < 0.14
+    , moonlight-planar
     , moonlight-planar:dcel
     , moonlight-planar:build
+
+test-suite moonlight-planar-curve-test
+  import: triangulation-test-properties
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    test/curve
+    test/support
+  other-modules:
+    Moonlight.Planar.CurveSpec
+    Moonlight.Planar.Curve.AuthoringSpec
+    Moonlight.Planar.AffineSpec
+    Moonlight.Planar.CurveLoweringSpec
+    Moonlight.Planar.CurveLoweringTypeErrors
+    Moonlight.Planar.RegionAdmissionSpec
+    Support
+  build-depends:
+    containers >= 0.8 && < 0.9
+    , moonlight-planar:dcel
+
+test-suite moonlight-planar-illustration-test
+  import: triangulation-test-properties
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    test/illustration
+    docs/art-common
+  other-modules:
+    Moonlight.Planar.IllustrationSpec
+    Moonlight.Planar.IllustrationStudySpec
+    Moonlight.Planar.EquationalGardenSpec
+    Moonlight.Planar.MotifSpec
+    Moonlight.Planar.LayoutSpec
+    Moonlight.Planar.SpaceSwordSpec
+    Moonlight.Planar.Exhibit.IllustrationStudy
+    Moonlight.Planar.Exhibit.EquationalGarden
+    Moonlight.Planar.Exhibit.SpaceSword
+  build-depends:
+    containers >= 0.8 && < 0.9
+    , moonlight-planar:dcel
+    , moonlight-planar:illustration
+
+executable moonlight-planar-illustration-study
+  import: shared-properties
+  main-is: Main.hs
+  hs-source-dirs:
+    docs/illustration-study
+    docs/art-common
+  other-modules:
+    Moonlight.Planar.Exhibit.IllustrationStudy
+    Moonlight.Planar.Exhibit.EquationalGarden
+    Moonlight.Planar.Exhibit.SpaceSword
+  build-depends:
+    base >= 4.19 && < 5
+    , containers >= 0.8 && < 0.9
+    , directory >= 1.3 && < 1.4
+    , filepath >= 1.4 && < 1.6
+    , moonlight-planar:dcel
+    , moonlight-planar:illustration
 
 -- Native coordinate, element, finite-set, descent/gluing, exact-publication,
 -- and serialization laws through public component boundaries only.
@@ -865,13 +1083,13 @@ test-suite moonlight-planar-hex-test
     , containers >= 0.8 && < 0.9
     , moonlight-planar
     , moonlight-planar:hex
-    , moonlight-planar:serialize
+    , moonlight-planar:hex-serialize
     , vector >= 0.13 && < 0.14
 
 -- One pure, source-grounded projection of the alpha, dual, interpolation,
 -- planar-algebra, and persistence owners. The test shares the internal exhibit
 -- module; neither component creates a public visualization API.
-test-suite moonlight-triangulation-persistence-rose-test
+test-suite moonlight-planar-persistence-rose-test
   import: shared-properties
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -879,7 +1097,7 @@ test-suite moonlight-triangulation-persistence-rose-test
     test/persistence-rose
     docs/persistence-rose
   other-modules:
-    Moonlight.Triangulation.Exhibit.PersistenceRose
+    Moonlight.Planar.Exhibit.PersistenceRose
   if impl(ghc < 9.14)
     buildable: False
   build-depends:
@@ -895,6 +1113,7 @@ test-suite moonlight-triangulation-persistence-rose-test
     , tasty-hunit >= 0.10 && < 0.11
     , text >= 2.0 && < 2.2
     , vector >= 0.13 && < 0.14
+    , moonlight-planar:build
 
 -- The single statement of the RTS environment every suite runs under: -N so
 -- that the concurrent tournament has more than one capability to be scheduled
@@ -907,7 +1126,7 @@ test-suite moonlight-triangulation-persistence-rose-test
 common triangulation-suite-rtsopts
   ghc-options: -threaded -rtsopts "-with-rtsopts=-N4 -T"
 
-test-suite moonlight-triangulation-native-test
+test-suite moonlight-planar-native-test
   import:
     triangulation-suite-rtsopts,
     triangulation-test-properties,
@@ -919,8 +1138,9 @@ test-suite moonlight-triangulation-native-test
     test/native
     test/support
 
-test-suite moonlight-triangulation-serialization-test
+test-suite moonlight-planar-serialization-test
   import:
+    triangulation-suite-rtsopts,
     triangulation-test-properties,
     triangulation-test-support-slice,
     triangulation-serialization-test-slice
@@ -930,7 +1150,7 @@ test-suite moonlight-triangulation-serialization-test
     test/serialization
     test/support
 
-test-suite moonlight-triangulation-algebra-test
+test-suite moonlight-planar-algebra-test
   import:
     triangulation-test-properties,
     triangulation-test-support-slice,
@@ -945,7 +1165,7 @@ test-suite moonlight-triangulation-algebra-test
     test/algebra
     test/support
 
-test-suite moonlight-triangulation-parallel-test
+test-suite moonlight-planar-parallel-test
   import:
     triangulation-suite-rtsopts,
     triangulation-test-properties,
@@ -959,7 +1179,7 @@ test-suite moonlight-triangulation-parallel-test
     test/algebra
     test/support
 
-test-suite moonlight-triangulation-ffi-test
+test-suite moonlight-planar-ffi-test
   import: shared-properties
   type: exitcode-stdio-1.0
   main-is: Main.hs
@@ -972,7 +1192,7 @@ test-suite moonlight-triangulation-ffi-test
 -- remains in focused suites.  The shared test-properties stanza keeps
 -- every test body at @-O0@, so the union retains type/module/instance collision
 -- detection without paying to optimize a second copy of every test body.
-test-suite moonlight-triangulation-coherence-test
+test-suite moonlight-planar-coherence-test
   import:
     triangulation-test-properties,
     triangulation-test-support-slice,
@@ -1002,8 +1222,8 @@ test-suite moonlight-triangulation-coherence-test
 -- Deliberately not @tasty-bench@: these report allocated bytes and the work
 -- counters the library keeps about itself — hierarchy walk steps, refinement
 -- queue pops, bytes per interpolation query — and a wall-clock harness cannot
--- express any of them.  @core@ and @serialize@ carry no benchmark today; that is
--- stated rather than filled with an invented one.
+-- express any of them. The serialization benchmark below additionally compares
+-- complete V6 bytes with the retained test-only gather oracle.
 
 common triangulation-benchmark-properties
   import: shared-properties
@@ -1016,45 +1236,52 @@ common triangulation-benchmark-properties
     base >= 4.19 && < 5
     , deepseq >= 1.5 && < 1.6
     , vector >= 0.13 && < 0.14
-    , moonlight-planar
 
 common triangulation-benchmark-support-slice
   other-modules:
     BenchMeasure
     BenchSupport
   build-depends: moonlight-planar:dcel-internal
+    , moonlight-planar:core
 
 common triangulation-build-benchmark-slice
-  other-modules: Moonlight.Triangulation.BuildBench
+  other-modules: Moonlight.Planar.BuildBench
   build-depends:
     primitive >= 0.9 && < 0.10
     , moonlight-planar:dcel-internal
     , moonlight-planar:build-internal
+    , moonlight-planar:storage-internal
     , moonlight-planar:ffi
 
 common triangulation-dcel-benchmark-slice
-  other-modules: Moonlight.Triangulation.DcelBench
+  other-modules: Moonlight.Planar.DcelBench
   build-depends: moonlight-planar:dcel-internal
+    , moonlight-planar:build
 
 common triangulation-dual-benchmark-slice
-  other-modules: Moonlight.Triangulation.DualBench
+  other-modules: Moonlight.Planar.DualBench
   build-depends: moonlight-planar:dual
+    , moonlight-planar:dcel-internal
+    , moonlight-planar:build
 
 common triangulation-join-benchmark-slice
-  other-modules: Moonlight.Triangulation.JoinBench
+  other-modules: Moonlight.Planar.JoinBench
   build-depends:
     containers >= 0.8 && < 0.9
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
     , moonlight-planar:build-internal
     , moonlight-planar:storage-internal
+    , moonlight-algebra:join
 
 common triangulation-region-benchmark-slice
-  other-modules: Moonlight.Triangulation.RegionBench
+  other-modules: Moonlight.Planar.RegionBench
   build-depends:
     containers >= 0.8 && < 0.9
     , moonlight-planar:core
     , moonlight-planar:dcel-internal
+    , moonlight-planar
+    , moonlight-planar:build
 
 -- The package-owned external construction board deliberately uses tasty-bench:
 -- unlike the native work-counter slices above, its only lawful common metric
@@ -1069,16 +1296,17 @@ common triangulation-delaunay-compare-properties
     , deepseq >= 1.5 && < 1.6
     , moonlight-planar:build-internal
     , moonlight-planar:dcel-internal
+    , moonlight-planar:core
 
-executable moonlight-triangulation-delaunay-compare
+executable moonlight-planar-delaunay-compare
   import: triangulation-delaunay-compare-properties
   ghc-options: -threaded -rtsopts
   main-is: Main.hs
   hs-source-dirs: docs/delaunay-compare
   other-modules:
-    Moonlight.Triangulation.Bench.DelaunayCompare.Domain
-    Moonlight.Triangulation.Bench.DelaunayCompare.Native
-    Moonlight.Triangulation.Bench.DelaunayCompare.Suite
+    Moonlight.Planar.Bench.DelaunayCompare.Domain
+    Moonlight.Planar.Bench.DelaunayCompare.Native
+    Moonlight.Planar.Bench.DelaunayCompare.Suite
   build-depends:
     directory >= 1.3 && < 1.4
     , filepath >= 1.4 && < 1.6
@@ -1088,31 +1316,31 @@ executable moonlight-triangulation-delaunay-compare
     , unix >= 2.8 && < 2.9
     , vector >= 0.13 && < 0.14
 
-executable moonlight-triangulation-delaunay-pictures
+executable moonlight-planar-delaunay-pictures
   import: triangulation-delaunay-compare-properties
   main-is: PictureMain.hs
   hs-source-dirs: docs/delaunay-compare
   other-modules:
-    Moonlight.Triangulation.Bench.DelaunayCompare.Domain
-    Moonlight.Triangulation.Bench.DelaunayCompare.Picture
+    Moonlight.Planar.Bench.DelaunayCompare.Domain
+    Moonlight.Planar.Bench.DelaunayCompare.Picture
   build-depends:
     containers >= 0.8 && < 0.9
     , directory >= 1.3 && < 1.4
     , filepath >= 1.4 && < 1.6
     , transformers >= 0.5 && < 0.7
 
-executable moonlight-triangulation-category-observatory-export
+executable moonlight-planar-category-observatory-export
   import: shared-properties
   main-is: Main.hs
   hs-source-dirs: docs/category-observatory
   other-modules:
-    Moonlight.Triangulation.Exhibit.CategoryObservatory
-    Moonlight.Triangulation.Exhibit.CategoryObservatory.Category
-    Moonlight.Triangulation.Exhibit.CategoryObservatory.Geometry
-    Moonlight.Triangulation.Exhibit.CategoryObservatory.Identifier
-    Moonlight.Triangulation.Exhibit.CategoryObservatory.Model
-    Moonlight.Triangulation.Exhibit.CategoryObservatory.Nerve
-    Moonlight.Triangulation.Exhibit.CategoryObservatory.Picture
+    Moonlight.Planar.Exhibit.CategoryObservatory
+    Moonlight.Planar.Exhibit.CategoryObservatory.Category
+    Moonlight.Planar.Exhibit.CategoryObservatory.Geometry
+    Moonlight.Planar.Exhibit.CategoryObservatory.Identifier
+    Moonlight.Planar.Exhibit.CategoryObservatory.Model
+    Moonlight.Planar.Exhibit.CategoryObservatory.Nerve
+    Moonlight.Planar.Exhibit.CategoryObservatory.Picture
   ghc-options: -Wall -Wcompat
   default-extensions:
     TypeFamilies
@@ -1131,16 +1359,56 @@ executable moonlight-triangulation-category-observatory-export
     , moonlight-homology:cell-complex >= 0.1.0.2 && < 0.2
     , moonlight-planar:build-internal
     , moonlight-planar:cell-complex
+    , moonlight-planar:core
     , moonlight-planar:dcel-internal
     , transformers >= 0.5 && < 0.7
     , vector >= 0.13 && < 0.14
 
-executable moonlight-triangulation-persistence-rose
+executable moonlight-planar-noctilucent-garden
+  import: shared-properties
+  main-is: Main.hs
+  hs-source-dirs: docs/noctilucent-garden docs/art-common
+  other-modules: Moonlight.Planar.Exhibit.Svg
+  build-depends:
+    base >= 4.19 && < 5
+    , moonlight-planar:build
+    , moonlight-planar:dcel
+    , moonlight-planar:dual
+    , vector >= 0.13 && < 0.14
+
+executable moonlight-planar-moonblade
+  import: shared-properties
+  main-is: Main.hs
+  hs-source-dirs: docs/moonblade docs/art-common
+  other-modules:
+    Moonlight.Planar.Exhibit.Svg
+    Moonlight.Planar.Exhibit.Moonblade.Crescent
+    Moonlight.Planar.Exhibit.Geometry
+  build-depends:
+    base >= 4.19 && < 5
+    , directory >= 1.3 && < 1.4
+    , filepath >= 1.4 && < 1.6
+    , moonlight-planar:build
+    , moonlight-planar:dcel
+    , vector >= 0.13 && < 0.14
+
+executable moonlight-planar-knight-rig
+  import: shared-properties
+  main-is: Main.hs
+  hs-source-dirs: docs/knight-rig docs/art-common
+  other-modules: Moonlight.Planar.Exhibit.Geometry
+  build-depends:
+    base >= 4.19 && < 5
+    , moonlight-planar:build
+    , moonlight-planar:dcel
+    , vector >= 0.13 && < 0.14
+
+executable moonlight-planar-persistence-rose
   import: shared-properties
   main-is: Main.hs
   hs-source-dirs: docs/persistence-rose
   other-modules:
-    Moonlight.Triangulation.Exhibit.PersistenceRose
+    Moonlight.Planar.Exhibit.PersistenceRose
   if impl(ghc < 9.14)
     buildable: False
   build-depends:
@@ -1157,11 +1425,12 @@ executable moonlight-triangulation-persistence-rose
     , text >= 2.0 && < 2.2
     , transformers >= 0.5 && < 0.7
     , vector >= 0.13 && < 0.14
+    , moonlight-planar:build
 
 -- These referent instruments inspect package-internal handles and thaw/freeze
 -- lanes. They belong to the triangulation package rather than reopening its
 -- private construction boundary through a second package.
-executable moonlight-triangulation-spade-referent
+executable moonlight-planar-spade-referent
   default-language: GHC2024
   ghc-options:
     -Wall
@@ -1183,19 +1452,19 @@ executable moonlight-triangulation-spade-referent
   -- SpadeCompare.Support and on nothing else of each other, so they compile in
   -- parallel and a lane edit rebuilds one slice.
   other-modules:
-    Moonlight.Triangulation.Bench.SpadeCompare.Lane
-    Moonlight.Triangulation.Bench.SpadeCompare.Input
-    Moonlight.Triangulation.Bench.SpadeCompare.Timing
-    Moonlight.Triangulation.Bench.SpadeCompare.Support
-    Moonlight.Triangulation.Bench.SpadeCompare.Delaunay
-    Moonlight.Triangulation.Bench.SpadeCompare.Removal
-    Moonlight.Triangulation.Bench.SpadeCompare.Hierarchy
-    Moonlight.Triangulation.Bench.SpadeCompare.Constraint
-    Moonlight.Triangulation.Bench.SpadeCompare.Interpolation
-    Moonlight.Triangulation.Bench.SpadeCompare.Voronoi
-    Moonlight.Triangulation.Bench.SpadeCompare.Dcel
-    Moonlight.Triangulation.Bench.SpadeCompare.Intersection
-    Moonlight.Triangulation.Bench.SpadeCompare.Gates
+    Moonlight.Planar.Bench.SpadeCompare.Lane
+    Moonlight.Planar.Bench.SpadeCompare.Input
+    Moonlight.Planar.Bench.SpadeCompare.Timing
+    Moonlight.Planar.Bench.SpadeCompare.Support
+    Moonlight.Planar.Bench.SpadeCompare.Delaunay
+    Moonlight.Planar.Bench.SpadeCompare.Removal
+    Moonlight.Planar.Bench.SpadeCompare.Hierarchy
+    Moonlight.Planar.Bench.SpadeCompare.Constraint
+    Moonlight.Planar.Bench.SpadeCompare.Interpolation
+    Moonlight.Planar.Bench.SpadeCompare.Voronoi
+    Moonlight.Planar.Bench.SpadeCompare.Dcel
+    Moonlight.Planar.Bench.SpadeCompare.Intersection
+    Moonlight.Planar.Bench.SpadeCompare.Gates
   build-depends:
     base >= 4.22 && < 5
     , deepseq >= 1.4 && < 1.6
@@ -1204,6 +1473,7 @@ executable moonlight-triangulation-spade-referent
     , vector >= 0.13 && < 0.14
     , primitive >= 0.9 && < 0.10
     , moonlight-planar
+    , moonlight-planar:build
     , moonlight-planar:dcel-internal
     , moonlight-planar:build-internal
     , moonlight-planar:dual
@@ -1211,7 +1481,7 @@ executable moonlight-triangulation-spade-referent
 -- The alpha comparison is deliberately opt-in: ordinary scorecard listing and
 -- replay do not inherit Homology merely because this diagnostic exists beside
 -- the canonical board.
-executable moonlight-triangulation-alpha-spade-referent
+executable moonlight-planar-alpha-spade-referent
   default-language: GHC2024
   ghc-options:
     -Wall
@@ -1231,10 +1501,10 @@ executable moonlight-triangulation-alpha-spade-referent
     bench/spade-compare/hs
   main-is: Main.hs
   other-modules:
-    Moonlight.Triangulation.Bench.SpadeCompare.Alpha
-    Moonlight.Triangulation.Bench.SpadeCompare.Input
-    Moonlight.Triangulation.Bench.SpadeCompare.Lane
-    Moonlight.Triangulation.Bench.SpadeCompare.Timing
+    Moonlight.Planar.Bench.SpadeCompare.Alpha
+    Moonlight.Planar.Bench.SpadeCompare.Input
+    Moonlight.Planar.Bench.SpadeCompare.Lane
+    Moonlight.Planar.Bench.SpadeCompare.Timing
   build-depends:
     base >= 4.22 && < 5
     , containers >= 0.6 && < 0.9
@@ -1243,12 +1513,78 @@ executable moonlight-triangulation-alpha-spade-referent
     , moonlight-homology >= 0.1 && < 0.2
     , moonlight-planar:build-internal
     , moonlight-planar:cell-complex
+    , moonlight-planar:core
     , moonlight-planar:dcel-internal
+    , moonlight-planar:dual
+
+-- Exact sign-only generator observations versus retained magnitude arithmetic.
+test-suite moonlight-planar-lifted-sign-test
+  import: shared-properties
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    test/lifted-sign
+    src-public
+  other-modules:
+    Moonlight.Planar.LiftedSignCases
+    Moonlight.Planar.Internal.PowerDiagram.Generator
+  build-depends:
+    base >= 4.19 && < 5
+    , deepseq >= 1.5 && < 1.6
+    , moonlight-planar:core
+    , moonlight-planar:dcel-internal
+
+benchmark moonlight-planar-lifted-sign-bench
+  import: shared-properties
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    bench/lifted-sign
+    test/lifted-sign
+    src-public
+    bench/support
+  other-modules:
+    Moonlight.Planar.LiftedSignCases
+    Moonlight.Planar.Internal.PowerDiagram.Generator
+    BenchMeasure
+  ghc-options: -fexpose-all-unfoldings -threaded -rtsopts "-with-rtsopts=-T"
+  build-depends:
+    base >= 4.19 && < 5
+    , deepseq >= 1.5 && < 1.6
+    , tasty-bench >= 0.3 && < 0.6
+    , moonlight-planar:core
+    , moonlight-planar:dcel-internal
+
+benchmark moonlight-planar-serialization-bench
+  import: shared-properties
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    bench/serialization
+    bench/support
+    test/serialization
+  other-modules:
+    BenchMeasure
+    Moonlight.Planar.SerializationV6Oracle
+    Moonlight.Planar.SerializationFixtures
+  ghc-options: -threaded -rtsopts "-with-rtsopts=-T"
+  build-depends:
+    base >= 4.19 && < 5
+    , deepseq >= 1.5 && < 1.6
+    , vector >= 0.13 && < 0.14
+    , binary >= 0.8 && < 0.9
+    , bytestring >= 0.12 && < 0.13
+    , tasty-bench >= 0.3 && < 0.6
+    , moonlight-planar:core
+    , moonlight-planar:serialize
+    , moonlight-planar:build-internal
+    , moonlight-planar:dcel-internal
+    , moonlight-planar:storage-internal
 
 -- One exact Delaunay alpha filtration versus independently restricting and
 -- reducing the same chain complex at every critical radius. Construction of
 -- the shared Delaunay geometry is outside all timed lanes.
-benchmark moonlight-triangulation-alpha-bench
+benchmark moonlight-planar-alpha-bench
   import:
     shared-properties,
     triangulation-benchmark-support-slice
@@ -1274,7 +1610,7 @@ benchmark moonlight-triangulation-alpha-bench
 -- Exact bounded power-cell construction.  Tasty-bench owns the timing
 -- distribution; the benchmark's one-shot report derives boundary/intersection and
 -- rational-width receipts from the public power-diagram result.
-benchmark moonlight-triangulation-power-bench
+benchmark moonlight-planar-power-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice
@@ -1284,15 +1620,17 @@ benchmark moonlight-triangulation-power-bench
     bench/power
     bench/support
   other-modules:
-    Moonlight.Triangulation.PowerBench
+    Moonlight.Planar.PowerBench
+    Moonlight.Planar.PowerMassBench
   build-depends:
     containers >= 0.6 && < 0.9
     , tasty-bench >= 0.3 && < 0.6
+    , moonlight-planar
 
 -- Exact affine-envelope construction, balanced n-ary refinement, and direct
 -- cell analytics against the public compositions callers would otherwise
 -- materialize by hand.
-benchmark moonlight-triangulation-layer-bench
+benchmark moonlight-planar-layer-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice
@@ -1302,12 +1640,14 @@ benchmark moonlight-triangulation-layer-bench
     bench/layer
     bench/support
   other-modules:
-    Moonlight.Triangulation.LayerBench
+    Moonlight.Planar.LayerBench
   build-depends:
     containers >= 0.8 && < 0.9
     , tasty-bench >= 0.3 && < 0.6
+    , moonlight-planar:core
+    , moonlight-planar
 
-benchmark moonlight-triangulation-build-bench
+benchmark moonlight-planar-build-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,
@@ -1318,7 +1658,7 @@ benchmark moonlight-triangulation-build-bench
     bench/build
     bench/support
 
-benchmark moonlight-triangulation-dcel-bench
+benchmark moonlight-planar-dcel-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,
@@ -1329,7 +1669,7 @@ benchmark moonlight-triangulation-dcel-bench
     bench/dcel
     bench/support
 
-benchmark moonlight-triangulation-dual-bench
+benchmark moonlight-planar-dual-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,
@@ -1340,7 +1680,7 @@ benchmark moonlight-triangulation-dual-bench
     bench/dual
     bench/support
 
-benchmark moonlight-triangulation-join-bench
+benchmark moonlight-planar-join-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,
@@ -1351,7 +1691,7 @@ benchmark moonlight-triangulation-join-bench
     bench/join
     bench/support
 
-benchmark moonlight-triangulation-publication-bench
+benchmark moonlight-planar-publication-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,
@@ -1363,7 +1703,7 @@ benchmark moonlight-triangulation-publication-bench
     bench/join
     bench/support
 
-benchmark moonlight-triangulation-region-bench
+benchmark moonlight-planar-region-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,
@@ -1374,8 +1714,27 @@ benchmark moonlight-triangulation-region-bench
     bench/region
     bench/support
 
--- Packed native finite-set kernels. The measurement module is shared, but the
--- component depends on no triangulation, DCEL, overlay, or Homology library.
+benchmark moonlight-planar-curve-bench
+  import: shared-properties
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    bench/curve
+    bench/support
+  other-modules:
+    BenchMeasure
+    Moonlight.Planar.CurveBench
+    Moonlight.Planar.AuthoringBench
+  ghc-options: -O2 -rtsopts "-with-rtsopts=-T"
+  build-depends:
+    base >= 4.19 && < 5
+    , containers >= 0.8 && < 0.9
+    , deepseq >= 1.5 && < 1.6
+    , moonlight-planar:dcel
+    , moonlight-planar:illustration
+
+-- Packed native finite-set kernels plus the opt-in canonical byte interpreter.
+-- The measured core itself remains the dependency-light @hex@ component.
 benchmark moonlight-planar-hex-bench
   import: shared-properties
   type: exitcode-stdio-1.0
@@ -1383,14 +1742,22 @@ benchmark moonlight-planar-hex-bench
   hs-source-dirs:
     bench/hex
     bench/support
-  other-modules: BenchMeasure
+  other-modules:
+    BenchMeasure
+    PlanarSelectionBaseline
+    PlanarSelectionBench
   ghc-options: -O2 -threaded -rtsopts "-with-rtsopts=-T"
   build-depends:
     base >= 4.19 && < 5
+    , bytestring >= 0.12 && < 0.13
+    , containers >= 0.8 && < 0.9
     , deepseq >= 1.5 && < 1.6
+    , tasty-bench >= 0.4 && < 0.5
+    , moonlight-planar
     , moonlight-planar:hex
+    , moonlight-planar:hex-serialize
 
-benchmark moonlight-triangulation-bench
+benchmark moonlight-planar-bench
   import:
     triangulation-benchmark-properties,
     triangulation-benchmark-support-slice,

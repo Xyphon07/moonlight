@@ -5,7 +5,7 @@
 thin lifecycle and bulk-layout leaves over that sole ABI; none implements
 triangulation, overlay, publication, valuation, or morphology.
 
-`Moonlight.Triangulation.Foreign.Contract` is the closed wire authority. Its
+`Moonlight.Planar.Foreign.Contract` is the closed wire authority. Its
 pure renderer owns the installed header, Windows export list, Haskell export
 module, TypeScript wire vocabulary and raw declarations, Python ctypes
 declarations, and Rust extern block. Check or rewrite those derived sections
@@ -13,7 +13,7 @@ from `compiler`—never edit them directly:
 
 ```bash
 ../scripts/safe-cabal.sh run \
-  moonlight-planar:exe:moonlight-triangulation-ffi-contract \
+  moonlight-planar:exe:moonlight-planar-ffi-contract \
   --project-file=cabal.project.planar-dev \
   -- check foundation/moonlight-planar
 ```

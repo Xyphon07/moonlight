@@ -15,6 +15,7 @@ import Data.IntMap.Strict
 import Data.Kind
   ( Type,
   )
+import Data.Vector.Unboxed (Vector)
 import Moonlight.Core.Identifier.EGraph
   ( ClassId (..),
   )
@@ -40,6 +41,10 @@ type UnionFind :: Type
 data UnionFind = UnionFind
   { ufParent :: !(IntMap ClassId),
     ufRank :: !(IntMap Int),
+    -- | Dense, hole-free prefix of canonical roots. This is a derived read
+    -- view populated only for a flattened partition; mutations that can
+    -- change roots discard it.
+    ufDenseCanonicalRoots :: !(Vector Int),
     ufNextFresh :: !Integer
   }
   deriving stock (Show)

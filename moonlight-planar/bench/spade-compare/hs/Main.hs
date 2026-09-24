@@ -1,6 +1,6 @@
 -- | Haskell half of the spade external referent.
 --
--- @moonlight-triangulation@ is a port of the Rust @spade@ crate, so spade is the
+-- @moonlight-planar@ is a port of the Rust @spade@ crate, so spade is the
 -- referent that grades it. Both halves generate their inputs from the same LCG
 -- with the same seeds and emit their gate output in the same encoding, so
 -- neither side can reformat a disagreement into agreement.
@@ -16,32 +16,36 @@ import Control.DeepSeq (NFData, force)
 import Control.Exception (evaluate)
 import Control.Monad.ST (runST)
 import Data.Word (Word64)
-import Moonlight.Triangulation.Internal.Mutable (freezeTriangulation, thawTriangulation)
+import Moonlight.Planar.Internal.Mutable (freezeTriangulation, thawTriangulation)
 import System.Environment (getArgs)
 import System.Exit (exitWith, ExitCode (ExitFailure))
 import System.IO (hPutStrLn, stderr)
 import qualified Data.Vector as V
-import Moonlight.Triangulation
-import Moonlight.Triangulation.BulkLoad
-import Moonlight.Triangulation.Cdt
-import Moonlight.Triangulation.Internal.HandleDefs
-import Moonlight.Triangulation.HintGenerator
-import Moonlight.Triangulation.Interpolation
-import Moonlight.Triangulation.PointLocation
-import Moonlight.Triangulation.Types
-import Moonlight.Triangulation.Bench.SpadeCompare.Constraint
-import Moonlight.Triangulation.Bench.SpadeCompare.Dcel
-import Moonlight.Triangulation.Bench.SpadeCompare.Delaunay
-import Moonlight.Triangulation.Bench.SpadeCompare.Gates
-import Moonlight.Triangulation.Bench.SpadeCompare.Hierarchy
-import Moonlight.Triangulation.Bench.SpadeCompare.Interpolation
-import Moonlight.Triangulation.Bench.SpadeCompare.Intersection
-import Moonlight.Triangulation.Bench.SpadeCompare.Input (randomPoints)
-import Moonlight.Triangulation.Bench.SpadeCompare.Lane
-import Moonlight.Triangulation.Bench.SpadeCompare.Removal
-import Moonlight.Triangulation.Bench.SpadeCompare.Support
-import Moonlight.Triangulation.Bench.SpadeCompare.Timing (measureLane)
-import Moonlight.Triangulation.Bench.SpadeCompare.Voronoi
+import Moonlight.Planar.BulkLoad
+import Moonlight.Planar.Cdt
+import Moonlight.Planar.Dcel (numVertices)
+import Moonlight.Planar.Handles.HandleDefs (VertexId)
+import Moonlight.Planar.PointLocation
+import Moonlight.Planar.Refinement (refine)
+import Moonlight.Planar.Types
+import Moonlight.Planar.Point (Point (..))
+import Moonlight.Planar.Telemetry (LocationHint (..), insertMany, nearestNeighbor)
+import Moonlight.Planar.Internal.HandleDefs
+import Moonlight.Planar.HintGenerator
+import Moonlight.Planar.Interpolation
+import Moonlight.Planar.Bench.SpadeCompare.Constraint
+import Moonlight.Planar.Bench.SpadeCompare.Dcel
+import Moonlight.Planar.Bench.SpadeCompare.Delaunay
+import Moonlight.Planar.Bench.SpadeCompare.Gates
+import Moonlight.Planar.Bench.SpadeCompare.Hierarchy
+import Moonlight.Planar.Bench.SpadeCompare.Interpolation
+import Moonlight.Planar.Bench.SpadeCompare.Intersection
+import Moonlight.Planar.Bench.SpadeCompare.Input (randomPoints)
+import Moonlight.Planar.Bench.SpadeCompare.Lane
+import Moonlight.Planar.Bench.SpadeCompare.Removal
+import Moonlight.Planar.Bench.SpadeCompare.Support
+import Moonlight.Planar.Bench.SpadeCompare.Timing (measureLane)
+import Moonlight.Planar.Bench.SpadeCompare.Voronoi
 
 main :: IO ()
 main = do
@@ -66,7 +70,7 @@ main = do
     ["interp-locate-audit", count, queries] -> reportInterpolationLocateAudit (read count) (read queries)
     ["interp-cavity-audit", count, queries] -> reportInterpolationCavityAudit (read count) (read queries)
     _ -> do
-      hPutStrLn stderr "usage: moonlight-triangulation-spade-referent (gate DIR | divergence FILE | inventory-csv | inventory-human | lane-specs CLASS | snapshot-specs | bench-one LANE A B | counters BUDGET | sweep-stats COUNT | removal-audit COUNT REMOVALS | removal-context COUNT INDEX | fresh-suffix COUNT DROPPED PATH | interp-audit COUNT QUERIES | interp-context COUNT [INDEX])"
+      hPutStrLn stderr "usage: moonlight-planar-spade-referent (gate DIR | divergence FILE | inventory-csv | inventory-human | lane-specs CLASS | snapshot-specs | bench-one LANE A B | counters BUDGET | sweep-stats COUNT | removal-audit COUNT REMOVALS | removal-context COUNT INDEX | fresh-suffix COUNT DROPPED PATH | interp-audit COUNT QUERIES | interp-context COUNT [INDEX])"
       exitWith (ExitFailure 2)
 
 refuseLane :: LaneObstruction -> IO value
@@ -237,13 +241,7 @@ runLane request@(LaneRequest lane first second) = case lane of
   RefineLane -> do
     let (points, constraints) = refinementInput
     cdt <- buildTriangulation <$> require (constrainedDelaunay unitElementDefaults points constraints)
-    let parameters = defaultRefinementParameters
-          { refineMaxAdditionalVertices = Just first
-          , refineMaxArea = Just 0.5
-          , refineMaxRadiusEdgeRatio = Just 1.0
-          , refineExcludeOuterFaces = True
-          , refineKeepConstraintEdges = False
-          }
+    parameters <- require (refinementParameters first)
     measure (refinementAddedVertices <$> require (refine id parameters (cdt :: ConstrainedDelaunayTriangulation Point)))
  where
   reopenTriangulation state _ = do

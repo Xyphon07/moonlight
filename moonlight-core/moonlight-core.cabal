@@ -46,7 +46,7 @@ common shared-properties
 
 library moonlight-core-basis
   import: shared-properties
-  visibility: private
+  visibility: public
   hs-source-dirs: src-basis
   exposed-modules:
     Moonlight.Core.Aggregate
@@ -170,7 +170,7 @@ library automata
 
 library moonlight-core-solver
   import: shared-properties
-  visibility: private
+  visibility: public
   hs-source-dirs: src-solver
   exposed-modules:
     Moonlight.Core.Fixpoint
@@ -246,7 +246,9 @@ library
   exposed-modules:
     Moonlight.Core
   reexported-modules:
-    Moonlight.Core.Unsound
+    Moonlight.Core.Dedup
+    , Moonlight.Core.Unsound
+    , Moonlight.Core.Validation
   build-depends:
     base >= 4.20 && < 5
     , containers >= 0.8 && < 0.9
@@ -288,6 +290,7 @@ test-suite moonlight-core-basis-test
     BoundarySpec
     CardinalitySpec
     DenseKeySpec
+    DedupSpec
     FiniteSpec
     IsoNormSpec
     LawProperty

@@ -4,19 +4,19 @@ module Main (main) where
 import Control.DeepSeq (force)
 import Control.Exception (evaluate)
 import Data.Vector qualified as Vector
-import Moonlight.Triangulation.Bench.SpadeCompare.Alpha
+import Moonlight.Planar.Bench.SpadeCompare.Alpha
   ( alphaPersistenceReceipt
   , renderAlphaPersistenceReceipt
   )
-import Moonlight.Triangulation.Bench.SpadeCompare.Input (randomPoints)
-import Moonlight.Triangulation.Bench.SpadeCompare.Lane
+import Moonlight.Planar.Bench.SpadeCompare.Input (randomPoints)
+import Moonlight.Planar.Bench.SpadeCompare.Lane
   ( LaneKind (AlphaPersistenceLane)
   , LaneObstruction
   , LaneRequest (..)
   , parseLaneRequest
   , renderLaneObstruction
   )
-import Moonlight.Triangulation.Bench.SpadeCompare.Timing (measureLane)
+import Moonlight.Planar.Bench.SpadeCompare.Timing (measureLane)
 import System.Environment (getArgs)
 import System.Exit (ExitCode (ExitFailure), exitWith)
 import System.IO (hPutStrLn, stderr)
@@ -62,5 +62,5 @@ refuseLane obstruction = do
 
 refuseUsage :: IO value
 refuseUsage = do
-  hPutStrLn stderr "usage: moonlight-triangulation-alpha-spade-referent (alpha-receipt COUNT | bench-one alpha-persistence COUNT 0)"
+  hPutStrLn stderr "usage: moonlight-planar-alpha-spade-referent (alpha-receipt COUNT | bench-one alpha-persistence COUNT 0)"
   exitWith (ExitFailure 2)
