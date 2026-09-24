@@ -1,6 +1,6 @@
 cabal-version:       3.4
 name:                moonlight-planar
-version:             1.1.0.0
+version:             1.2.0.0
 synopsis:            Native hex regions, Delaunay meshes, and exact planar algebra.
 description:         Native packed hexagonal cell regions and Delaunay and
                      constrained Delaunay triangulation as lawful
@@ -47,6 +47,7 @@ extra-doc-files:
   README.md
   CHANGELOG.md
   docs/README.md
+  docs/curve-authoring-status.md
   docs/development.md
   docs/activation-zigzag.md
   docs/regular-site-algebra.md
@@ -123,7 +124,7 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/PaleRoses/moonlight.git
-  tag:      moonlight-planar-1.1.0.0
+  tag:      moonlight-planar-1.2.0.0
   subdir:   moonlight-planar
 
 flag warnings-as-errors
@@ -237,6 +238,9 @@ library dcel-internal
     Moonlight.Planar.Curve
     Moonlight.Planar.Curve.Authoring
     Moonlight.Planar.Curve.Lowering
+    Moonlight.Planar.Curve.Measure
+    Moonlight.Planar.Curve.Frame
+    Moonlight.Planar.Curve.Proximity
     Moonlight.Planar.Curve.Region
     Moonlight.Planar.Affine
     Moonlight.Planar.Convex
@@ -269,12 +273,17 @@ library dcel-internal
     Moonlight.Planar.Internal.Region.Publication
     Moonlight.Planar.Internal.Region.Types
     Moonlight.Planar.Internal.Region.Bounds
+    Moonlight.Planar.Internal.Region.Loop
     Moonlight.Planar.Internal.Predicates
     Moonlight.Planar.Internal.SegmentRelation
     Moonlight.Planar.Internal.Types
     Moonlight.Planar.Internal.Representation
     Moonlight.Planar.Internal.PointIndex
     Moonlight.Planar.Internal.Tournament
+    Moonlight.Planar.Internal.Length
+    Moonlight.Planar.Internal.CurveSource
+    Moonlight.Planar.Internal.CurveBudget
+    Moonlight.Planar.Internal.CurveCertificate
   other-modules:
     Moonlight.Planar.Internal.Exact
   build-depends:
@@ -305,6 +314,9 @@ library dcel
     , Moonlight.Planar.Curve
     , Moonlight.Planar.Curve.Authoring
     , Moonlight.Planar.Curve.Lowering
+    , Moonlight.Planar.Curve.Measure
+    , Moonlight.Planar.Curve.Frame
+    , Moonlight.Planar.Curve.Proximity
     , Moonlight.Planar.Curve.Region
     , Moonlight.Planar.Affine
     , Moonlight.Planar.Convex
@@ -1019,6 +1031,11 @@ test-suite moonlight-planar-curve-test
     test/support
   other-modules:
     Moonlight.Planar.CurveSpec
+    Moonlight.Planar.CurveMeasureSpec
+    Moonlight.Planar.CurveSourceSpec
+    Moonlight.Planar.CurveFrameSpec
+    Moonlight.Planar.CurveCertificateSpec
+    Moonlight.Planar.CurveProximitySpec
     Moonlight.Planar.Curve.AuthoringSpec
     Moonlight.Planar.AffineSpec
     Moonlight.Planar.CurveLoweringSpec
@@ -1027,7 +1044,9 @@ test-suite moonlight-planar-curve-test
     Support
   build-depends:
     containers >= 0.8 && < 0.9
+    , moonlight-planar:core
     , moonlight-planar:dcel
+    , moonlight-planar:dcel-internal
 
 test-suite moonlight-planar-illustration-test
   import: triangulation-test-properties
@@ -1721,10 +1740,14 @@ benchmark moonlight-planar-curve-bench
   hs-source-dirs:
     bench/curve
     bench/support
+    docs/art-common
   other-modules:
     BenchMeasure
     Moonlight.Planar.CurveBench
     Moonlight.Planar.AuthoringBench
+    Moonlight.Planar.MeasureBench
+    Moonlight.Planar.RegionBench
+    Moonlight.Planar.Exhibit.IllustrationStudy
   ghc-options: -O2 -rtsopts "-with-rtsopts=-T"
   build-depends:
     base >= 4.19 && < 5

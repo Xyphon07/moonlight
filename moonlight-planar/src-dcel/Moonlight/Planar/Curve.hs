@@ -18,8 +18,19 @@ module Moonlight.Planar.Curve
   , curveStepEnd
   , stepControlPoints
   , evaluateStep
-  , splitStepHalf
+  , splitStep
+  , ParameterSpan
+  , ParameterSpanError (..)
+  , parameterSpan
+  , parameterSpanFrom
+  , parameterSpanTo
+  , restrictStep
   , reverseStep
+  , StepJet
+  , stepJetValue
+  , stepJetFirst
+  , stepJetSecond
+  , jetStep
   , startJet
   , endJet
   , hermiteStep
@@ -64,8 +75,8 @@ import Moonlight.Planar.Affine (Affine2, affine2, transformPoint, transformVecto
 import Moonlight.Planar.Exact
   ( ExactPoint, ExactRational, ExactVector (..), PositiveExact, UnitInterval
   , addExactVectors, blendPositive, divideByPositive, exactCross
-  , exactHalf, exactPoint, exactThird, positiveExactValue, positiveOne
-  , positiveTwo, ratioPositive, translateExactPoint, unitHalf, unitIntervalValue
+  , exactPoint, exactThird, positiveExactValue, positiveOne
+  , positiveTwo, ratioPositive, translateExactPoint, unitIntervalValue
   )
 
 data CurveShape
@@ -154,43 +165,48 @@ evaluateStep parameter (CurveStep shape endpoint) = case shape of
  where
   t = unitIntervalValue parameter
 
--- | Exact half subdivision. The right child's controls are rebased at the
--- shared split point; parameterization is inherited on each half interval.
-splitStepHalf :: CurveStep -> (CurveStep, CurveStep)
-splitStepHalf (CurveStep shape endpoint) = case shape of
+-- | Exact de Casteljau subdivision at @t@. The left child is the source on
+-- @[0,t]@ and the right child the source on @[t,1]@, each reparameterized
+-- affinely over its own unit interval; the right child's controls are rebased
+-- at the shared split point. A child at an endpoint parameter is stationary.
+splitStep :: UnitInterval -> CurveStep -> (CurveStep, CurveStep)
+splitStep parameter (CurveStep shape endpoint) = case shape of
   Linear ->
-    let midpoint = scaleVector exactHalf endpoint
-     in (CurveStep Linear midpoint, CurveStep Linear midpoint)
+    (CurveStep Linear (scaleVector t endpoint), CurveStep Linear (scaleVector (1 - t) endpoint))
   Quadratic a ->
-    let p = midpointVector zeroVector a
-        q = midpointVector a endpoint
-        m = midpointVector p q
+    let p = scaleVector t a
+        q = blend t a endpoint
+        m = blend t p q
      in (CurveStep (Quadratic p) m,
          CurveStep (Quadratic (subtractVectors q m)) (subtractVectors endpoint m))
   Cubic a b ->
-    let p = midpointVector zeroVector a
-        q = midpointVector a b
-        r = midpointVector b endpoint
-        u = midpointVector p q
-        v = midpointVector q r
-        m = midpointVector u v
+    let p = scaleVector t a
+        q = blend t a b
+        r = blend t b endpoint
+        u = blend t p q
+        v = blend t q r
+        m = blend t u v
      in (CurveStep (Cubic p u) m,
          CurveStep (Cubic (subtractVectors v m) (subtractVectors r m))
            (subtractVectors endpoint m))
+  -- Every level is demanded by both children, so each is bound strictly: a
+  -- lazy level would be a thunk capturing the dynamic parameter.
   RationalQuadratic a u v ->
     let start = Homogeneous zeroVector positiveOne
-        middle = weighted a u
-        finish = weighted endpoint v
-        p = blendHomogeneous unitHalf start middle
-        q = blendHomogeneous unitHalf middle finish
-        m = blendHomogeneous unitHalf p q
-        midpoint = project m
+        !middle = weighted a u
+        !finish = weighted endpoint v
+        !p = blendHomogeneous parameter start middle
+        !q = blendHomogeneous parameter middle finish
+        !m = blendHomogeneous parameter p q
+        !point = project m
         leftShape = rationalQuadratic (project p) (weight p) (weight m)
-        rightShape = rationalQuadratic (subtractVectors (project q) midpoint)
+        rightShape = rationalQuadratic (subtractVectors (project q) point)
           (ratioPositive (weight q) (weight m))
           (ratioPositive v (weight m))
-     in (CurveStep leftShape midpoint,
-         CurveStep rightShape (subtractVectors endpoint midpoint))
+     in (CurveStep leftShape point,
+         CurveStep rightShape (subtractVectors endpoint point))
+ where
+  t = unitIntervalValue parameter
 
 reverseStep :: CurveStep -> CurveStep
 reverseStep (CurveStep shape endpoint) = CurveStep reversed (negateVector endpoint)
@@ -202,8 +218,69 @@ reverseStep (CurveStep shape endpoint) = CurveStep reversed (negateVector endpoi
     RationalQuadratic a u v -> rationalQuadratic (subtractVectors a endpoint)
       (ratioPositive u v) (ratioPositive positiveOne v)
 
--- | Derivatives with respect to each segment's own unit parameter. Equality
--- of these jets is C1 for equal-duration segment parameterizations, not arc length.
+-- | Value, first and second derivative at one parameter, relative to the
+-- step's start and with respect to its own unit parameter. The derivatives
+-- are not unit speed; zero derivatives are lawful observations.
+data StepJet = StepJet !ExactVector !ExactVector !ExactVector
+  deriving stock (Eq, Ord, Show)
+
+instance NFData StepJet where
+  rnf (StepJet value first second) = rnf value `seq` rnf first `seq` rnf second
+
+stepJetValue :: StepJet -> ExactVector
+stepJetValue (StepJet value _ _) = value
+
+stepJetFirst :: StepJet -> ExactVector
+stepJetFirst (StepJet _ first _) = first
+
+stepJetSecond :: StepJet -> ExactVector
+stepJetSecond (StepJet _ _ second) = second
+
+-- | Polynomial derivatives are Bernstein difference forms of the de Casteljau
+-- levels. A rational quadratic is the quotient @C = N / W@ of its homogeneous
+-- numerator by a positive weight; differentiating @N = W C@ gives
+-- @C' = (N' - W'C) / W@ and @C'' = (N'' - W''C - 2W'C') / W@.
+jetStep :: UnitInterval -> CurveStep -> StepJet
+jetStep parameter (CurveStep shape endpoint) = case shape of
+  Linear -> StepJet (scaleVector t endpoint) endpoint zeroVector
+  Quadratic a ->
+    let p = scaleVector t a
+        q = blend t a endpoint
+     in StepJet (blend t p q) (scaleVector 2 (subtractVectors q p))
+          (scaleVector 2 (subtractVectors endpoint (scaleVector 2 a)))
+  Cubic a b ->
+    let p = scaleVector t a
+        q = blend t a b
+        r = blend t b endpoint
+        u = blend t p q
+        v = blend t q r
+     in StepJet (blend t u v) (scaleVector 3 (subtractVectors v u))
+          (scaleVector 6 (addExactVectors (subtractVectors r q) (subtractVectors p q)))
+  RationalQuadratic a u v ->
+    let start = Homogeneous zeroVector positiveOne
+        middle = weighted a u
+        finish = weighted endpoint v
+        p = blendHomogeneous parameter start middle
+        q = blendHomogeneous parameter middle finish
+        m = blendHomogeneous parameter p q
+        value = project m
+        weightFirst = 2 * (positiveExactValue (weight q) - positiveExactValue (weight p))
+        weightSecond = 2 * (1 - 2 * positiveExactValue u + positiveExactValue v)
+        numeratorFirst = scaleVector 2 (subtractVectors (numerator q) (numerator p))
+        numeratorSecond =
+          scaleVector 2 (subtractVectors (numerator finish) (scaleVector 2 (numerator middle)))
+        first = divideVector (subtractVectors numeratorFirst (scaleVector weightFirst value)) (weight m)
+        second = divideVector
+          (subtractVectors numeratorSecond
+            (addExactVectors (scaleVector weightSecond value) (scaleVector (2 * weightFirst) first)))
+          (weight m)
+     in StepJet value first second
+ where
+  t = unitIntervalValue parameter
+
+-- | Closed-form first derivatives of 'jetStep' at the endpoints, with respect
+-- to each segment's own unit parameter. Equality of these jets is C1 for
+-- equal-duration segment parameterizations, not arc length.
 startJet :: CurveStep -> ExactVector
 startJet (CurveStep shape endpoint) = case shape of
   Linear -> endpoint
@@ -329,6 +406,69 @@ location (Located anchor _) = anchor
 locatedValue :: Located a -> a
 locatedValue (Located _ value) = value
 
+-- | An ordered parameter interval of one step. Equal endpoints are admitted
+-- and denote a single point, not an empty or reversed traversal.
+data ParameterSpan = ParameterSpan !UnitInterval !UnitInterval
+  deriving stock (Eq, Ord, Show)
+
+instance NFData ParameterSpan where
+  rnf (ParameterSpan from to) = rnf from `seq` rnf to
+
+data ParameterSpanError = ReversedParameterSpan !UnitInterval !UnitInterval
+  deriving stock (Eq, Ord, Show)
+
+parameterSpan :: UnitInterval -> UnitInterval -> Either ParameterSpanError ParameterSpan
+parameterSpan from to
+  | from <= to = Right (ParameterSpan from to)
+  | otherwise = Left (ReversedParameterSpan from to)
+
+parameterSpanFrom :: ParameterSpan -> UnitInterval
+parameterSpanFrom (ParameterSpan from _) = from
+
+parameterSpanTo :: ParameterSpan -> UnitInterval
+parameterSpanTo (ParameterSpan _ to) = to
+
+-- | The step on @[a,b]@, reparameterized so that local @u@ is source
+-- @a + (b - a) u@ and relocated to start at the source point at @a@. Its
+-- controls are the polar forms of the source controls at @a@ and @b@, so no
+-- parameter is divided and equal endpoints yield a stationary step.
+restrictStep :: ParameterSpan -> Located CurveStep -> Located CurveStep
+restrictStep (ParameterSpan from to) (Located anchor (CurveStep shape endpoint)) = case shape of
+  Linear ->
+    Located (place (scaleVector a endpoint)) (CurveStep Linear (scaleVector (b - a) endpoint))
+  Quadratic c ->
+    let polar s r = polarQuadratic mix s r zeroVector c endpoint
+        start = polar from from
+        relative = (`subtractVectors` start)
+     in Located (place start)
+          (CurveStep (Quadratic (relative (polar from to))) (relative (polar to to)))
+  Cubic c d ->
+    let polar s r q = polarCubic mix s r q zeroVector c d endpoint
+        start = polar from from from
+        relative = (`subtractVectors` start)
+     in Located (place start)
+          (CurveStep (Cubic (relative (polar from from to)) (relative (polar from to to)))
+            (relative (polar to to to)))
+  RationalQuadratic c u v ->
+    let polar s r = polarQuadratic blendHomogeneous s r
+          (Homogeneous zeroVector positiveOne) (weighted c u) (weighted endpoint v)
+        initial = polar from from
+        middle = polar from to
+        final = polar to to
+        start = project initial
+        relative = (`subtractVectors` start)
+     in Located (place start)
+          (CurveStep
+            (rationalQuadratic (relative (project middle))
+              (ratioPositive (weight middle) (weight initial))
+              (ratioPositive (weight final) (weight initial)))
+            (relative (project final)))
+ where
+  a = unitIntervalValue from
+  b = unitIntervalValue to
+  mix = blend . unitIntervalValue
+  place = translateExactPoint anchor
+
 -- | One affine value owns both the point action and the relative vector action.
 transformLocatedTrail :: Affine2 -> Located OpenTrail -> Located OpenTrail
 transformLocatedTrail placement (Located anchor trail) =
@@ -404,13 +544,29 @@ weighted value w = Homogeneous (scaleVector (positiveExactValue w) value) w
 weight :: Homogeneous -> PositiveExact
 weight (Homogeneous _ w) = w
 
+numerator :: Homogeneous -> ExactVector
+numerator (Homogeneous value _) = value
+
 project :: Homogeneous -> ExactVector
-project (Homogeneous (ExactVector x y) w) =
-  ExactVector (divideByPositive x w) (divideByPositive y w)
+project (Homogeneous value w) = divideVector value w
+
+divideVector :: ExactVector -> PositiveExact -> ExactVector
+divideVector (ExactVector x y) w = ExactVector (divideByPositive x w) (divideByPositive y w)
 
 blendHomogeneous :: UnitInterval -> Homogeneous -> Homogeneous -> Homogeneous
 blendHomogeneous t (Homogeneous a u) (Homogeneous b v) =
   Homogeneous (blend (unitIntervalValue t) a b) (blendPositive t u v)
+
+-- | Polar forms (blossoms) of Bernstein controls: symmetric and affine in each
+-- parameter, with the curve itself on the diagonal. Each parameter selects
+-- one de Casteljau level, so parameters in the unit interval keep homogeneous
+-- weights positive.
+polarQuadratic :: (s -> v -> v -> v) -> s -> s -> v -> v -> v -> v
+polarQuadratic mix s r p0 p1 p2 = mix r (mix s p0 p1) (mix s p1 p2)
+
+polarCubic :: (s -> v -> v -> v) -> s -> s -> s -> v -> v -> v -> v -> v
+polarCubic mix s r q p0 p1 p2 p3 =
+  mix q (polarQuadratic mix s r p0 p1 p2) (polarQuadratic mix s r p1 p2 p3)
 
 zeroVector :: ExactVector
 zeroVector = ExactVector 0 0
@@ -426,9 +582,6 @@ subtractVectors a b = addExactVectors a (negateVector b)
 
 blend :: ExactRational -> ExactVector -> ExactVector -> ExactVector
 blend t a b = addExactVectors (scaleVector (1 - t) a) (scaleVector t b)
-
-midpointVector :: ExactVector -> ExactVector -> ExactVector
-midpointVector = blend exactHalf
 
 dotVector :: ExactVector -> ExactVector -> ExactRational
 dotVector (ExactVector ax ay) (ExactVector bx by) = ax * bx + ay * by

@@ -36,6 +36,10 @@ module Moonlight.Planar.Internal.ExactRational
   , exactHalf
   , exactThird
   , blendPositive
+  , unitMidpoint
+  , unitBetween
+  , unitClamp
+  , unitIntervalRun
   , divideByPositive
   , ratioPositive
   , multiplyPositive
@@ -44,12 +48,14 @@ module Moonlight.Planar.Internal.ExactRational
 
 import Control.DeepSeq (NFData (..))
 import Data.Bits ((.&.), shiftL, shiftR)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Ratio (Ratio, (%))
 import qualified Data.Ratio as Ratio
 import GHC.Generics (Generic)
 import GHC.Exts (Int (I#))
 import GHC.Integer.Logarithms (integerLog2#)
 import GHC.Real (Ratio ((:%)))
+import Numeric.Natural (Natural)
 
 -- | A checked wrapper around a reduced ratio with a strictly positive
 -- denominator. 'Ratio' owns normalization, including the unique zero
@@ -245,6 +251,32 @@ exactThird = ExactRational (1 :% 3)
 blendPositive :: UnitInterval -> PositiveExact -> PositiveExact -> PositiveExact
 blendPositive (UnitInterval t) (PositiveExact a) (PositiveExact b) =
   PositiveExact ((1 - t) * a + t * b)
+
+-- | The exact midpoint of two unit parameters. A convex combination of two
+-- admitted parameters stays in the closed unit interval without readmission.
+unitMidpoint :: UnitInterval -> UnitInterval -> UnitInterval
+unitMidpoint (UnitInterval a) (UnitInterval b) = UnitInterval ((a + b) * exactHalf)
+
+-- | The parameter a unit fraction of the way from the first to the second, a
+-- convex combination like 'unitMidpoint'.
+unitBetween :: UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval
+unitBetween (UnitInterval a) (UnitInterval b) (UnitInterval t) = UnitInterval (a + (b - a) * t)
+
+-- | The nearest point of the closed unit interval.
+unitClamp :: ExactRational -> UnitInterval
+unitClamp value = UnitInterval (max 0 (min 1 value))
+
+-- | @intervals + 1@ evenly spaced points, both endpoints included: @first@,
+-- then @first + k (final - first) / intervals@ for @k@ from one to
+-- @intervals@. Zero intervals is @first@ alone, whose division is never
+-- formed. Each point is a convex combination of the two, so none needs
+-- readmission.
+unitIntervalRun :: Natural -> UnitInterval -> UnitInterval -> NonEmpty UnitInterval
+unitIntervalRun intervals (UnitInterval first) (UnitInterval final) =
+  UnitInterval first :| fmap at [1 .. intervals]
+ where
+  at :: Natural -> UnitInterval
+  at k = UnitInterval (first + (final - first) * ExactRational (toInteger k % toInteger intervals))
 
 -- | The same Ratio division as 'exactDivide', with its nonzero precondition
 -- already discharged by the opaque positive divisor.

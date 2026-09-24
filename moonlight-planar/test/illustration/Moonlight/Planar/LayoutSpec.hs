@@ -45,6 +45,13 @@ tests = do
         (path (Seq.singleton (OpenSubpath (locate (exactPoint 9 4) mempty))))))
           == Just (9,4,9,4))
   traverse_ containment shapes
+  traverse_ (\picture -> check "layout bounds reducer agrees with envelope bounds"
+    (layoutBounds picture == boundsObservation (geometryEnvelope picture)))
+    ([mempty, art, place frame art, place collapse art, place unshear (place shear art)
+      , annotate () (opacity unitZero clipped), motifPicture (box 13), strokeOf mempty
+      , strokeOf (path (Seq.singleton (OpenSubpath (locate (exactPoint 9 4) mempty)))) ]
+      <> fmap (strokeOf . path . Seq.singleton . OpenSubpath . locate (exactPoint 0 0) . openTrail . Seq.singleton) shapes)
+  traverse_ (controlLaws frame shear unshear collapse) controlFixtures
   layoutLaws
   putStrLn "layout: exact support, conservative geometry, coherent linear arrangement ok"
 
@@ -93,6 +100,104 @@ containment step = do
  where
   dot (ExactVector x y) (ExactVector a b) = x*a+y*b
 
+-- Bounds as layout sees them. Aligning an edge to a target moves the identity
+-- port by the target minus that edge, so the edge read back is target-independent;
+-- empty geometry does not move for any target.
+layoutBounds :: Picture () -> Maybe (ExactRational, ExactRational, ExactRational, ExactRational)
+layoutBounds picture
+  | edge Horizontal unitZero 0 /= edge Horizontal unitZero 1 = Nothing
+  | otherwise = Just (edge Horizontal unitZero 0, edge Vertical unitZero 0, edge Horizontal unitOne 0, edge Vertical unitOne 0)
+ where
+  edge :: LayoutAxis -> UnitInterval -> ExactRational -> ExactRational
+  edge axis fraction target =
+    let (x, y) = exactPointCoordinates (transformPoint
+          (affineIsoMap (motifPort (alignMotif axis fraction target (probe picture)) Root)) (exactPoint 0 0))
+     in target - case axis of
+          Horizontal -> x
+          Vertical -> y
+
+probe :: Picture () -> Motif Port ()
+probe picture = motif picture (const identityAffineIso2)
+
+-- Relative controls of a trail with every shape and two constant steps. The
+-- expected support is the anchor and each step's controls, enumerated by hand
+-- in absolute coordinates; shared starts appear once, which cannot move support.
+chain :: OpenTrail
+chain = openTrail (Seq.fromList
+  [ curveStep line (ExactVector 3 0)
+  , curveStep (quadratic (ExactVector 1 4)) (ExactVector 2 0)
+  , curveStep (cubic (ExactVector (-1) (-5)) (ExactVector 4 2)) (ExactVector 0 3)
+  , curveStep line (ExactVector 0 0)
+  , curveStep (quadratic (ExactVector 0 0)) (ExactVector 0 0)
+  , curveStep (rationalQuadratic (ExactVector 2 (-2)) positiveTwo positiveOne) (ExactVector (-6) 1) ])
+
+chainPoints :: NonEmpty ExactPoint
+chainPoints = exactPoint 1 2 :| [exactPoint 4 2, exactPoint 5 6, exactPoint 6 2, exactPoint 5 (-3)
+  , exactPoint 10 4, exactPoint 6 5, exactPoint 8 3, exactPoint 0 6]
+
+-- The derived closing step runs from (0,6) back to the anchor through (-3,5).
+closedChain :: Located ClosedTrail
+closedChain = locate (exactPoint 1 2) (closeWith (quadratic (ExactVector (-3) (-1))) chain)
+
+data ControlFixture = ControlFixture String (Picture ()) (NonEmpty ExactPoint)
+
+controlFixtures :: [ControlFixture]
+controlFixtures =
+  [ ControlFixture "multi-step open trail" (strokeOf (subpaths [OpenSubpath (locate (exactPoint 1 2) chain)])) chainPoints
+  , ControlFixture "closed trail with derived closing step" (fill NonZero (Solid (RGB 1 2 3)) (closedChain :| []))
+      (chainPoints <> (exactPoint (-3) 5 :| []))
+  , ControlFixture "located empty open trail" (strokeOf (subpaths [OpenSubpath (locate (exactPoint 9 4) mempty)]))
+      (exactPoint 9 4 :| [])
+  , ControlFixture "located empty closed trail" (strokeOf (subpaths [ClosedSubpath (locate (exactPoint (-2) 7) (closeWith line mempty))]))
+      (exactPoint (-2) 7 :| [])
+  , ControlFixture "sibling located empty and multi-step trails"
+      (strokeOf (subpaths [OpenSubpath (locate (exactPoint 20 (-8)) mempty), OpenSubpath (locate (exactPoint 1 2) chain)]))
+      (exactPoint 20 (-8) :| toList chainPoints) ]
+
+-- Every fixture under identity, nested frames (each control point mapped once by
+-- the composite), a nested inverse shear that must not rebox, and singular maps.
+controlLaws :: Affine2 -> Affine2 -> Affine2 -> Affine2 -> ControlFixture -> IO ()
+controlLaws frame shear unshear collapse (ControlFixture label picture points) = do
+  let rankOne = affine2 (ExactVector 1 2) (ExactVector 2 4) (ExactVector 0 1)
+  traverse_ (\(scope, scoped, expected) -> do
+      let e = geometryEnvelope scoped
+          bounds = Just (pointsBounds expected)
+      traverse_ (\u -> check (label <> ", " <> scope <> ": support")
+        (geometrySupport u e == Just (maximum (project u <$> expected)))) directions
+      check (label <> ", " <> scope <> ": envelope bounds") (boundsObservation e == bounds)
+      check (label <> ", " <> scope <> ": layout bounds") (layoutBounds scoped == bounds))
+    [ ("identity", picture, points)
+    , ("nested frames", place frame (place shear picture), transformPoint frame . transformPoint shear <$> points)
+    , ("nested inverse shear", place unshear (place shear picture), points)
+    , ("rank-one map", place rankOne picture, transformPoint rankOne <$> points)
+    , ("collapse", place frame (place collapse picture), transformPoint frame (exactPoint 4 9) :| []) ]
+ where
+  project :: ExactVector -> ExactPoint -> ExactRational
+  project (ExactVector x y) point = let (px, py) = exactPointCoordinates point in x * px + y * py
+
+pointsBounds :: NonEmpty ExactPoint -> (ExactRational, ExactRational, ExactRational, ExactRational)
+pointsBounds points =
+  let coordinates = exactPointCoordinates <$> points
+   in (minimum (fst <$> coordinates), minimum (snd <$> coordinates), maximum (fst <$> coordinates), maximum (snd <$> coordinates))
+
+chainLayoutLaws :: IO ()
+chainLayoutLaws = do
+  let open = probe (strokeOf (subpaths [OpenSubpath (locate (exactPoint 1 2) chain)]))
+      closed = probe (fill NonZero (Solid (RGB 1 2 3)) (closedChain :| []))
+      port :: Motif Port () -> ExactPoint
+      port value = transformPoint (affineIsoMap (motifPort value Root)) (exactPoint 0 0)
+  check "multi-step arrangement from control bounds"
+    (fmap port (toList (arrangeMotifs Horizontal 2 (Seq.fromList [open, closed, open])))
+      == [exactPoint 0 0, exactPoint 15 0, exactPoint 27 0])
+  check "multi-step vertical midpoint alignment"
+    (port (alignMotif Vertical unitHalf 0 open) == exactPoint 0 (negate (3 * exactHalf)))
+
+subpaths :: [Subpath] -> Path
+subpaths = path . Seq.fromList
+
+strokeOf :: Path -> Picture ()
+strokeOf = stroke (pen positiveOne LocalUnits)
+
 layoutLaws :: IO ()
 layoutLaws = do
   let original = box 10
@@ -114,6 +219,7 @@ layoutLaws = do
       (transformPoint (affineIsoMap (motifPort value Root)) (exactPoint 0 0)
         == exactPoint (boundsMinimumX bounds) (boundsMinimumY bounds))) baseline
   check "empty layout identity" (ports [alignMotif Horizontal unitOne 0 empty] == ports [empty])
+  chainLayoutLaws
 
 box :: ExactRational -> Motif Port ()
 box width = motif (fill NonZero (Solid (RGB 1 2 3))

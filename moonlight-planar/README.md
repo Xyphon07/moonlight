@@ -320,9 +320,10 @@ curves as the source of truth; neither SVG strings nor triangulation vertices
 are the editing interface.
 
 This is a strong foundation, not a finished illustration language. The
-[curve-authoring status](docs/curve-authoring-status.md) records the missing
-measurement, offset, intersection, relational, repetition, and diagnostic
-algebras required before making a broader readiness claim.
+[curve-authoring status](docs/curve-authoring-status.md) records what the
+measured and certified layer provides, its capability boundary, and the missing
+offset, intersection, relational, repetition, and diagnostic algebras required
+before making a broader readiness claim.
 
 `Moonlight.Planar.Curve` separates relative steps from their absolute
 `Located` anchor. `curveStep` supplies a displacement and a shape made with

@@ -1,15 +1,16 @@
 -- | Exact laws of the authored curve algebra, independently of flattening.
 module Moonlight.Planar.CurveSpec (tests) where
 
+import Control.Monad (when)
 import Data.Foldable (toList, traverse_)
 import qualified Data.Sequence as Seq
 import Moonlight.Planar.Affine
-  ( affine2, composeAffine2, identityAffine2, transformPoint, transformVector )
+  ( Affine2, affine2, composeAffine2, identityAffine2, transformPoint, transformVector )
 import Moonlight.Planar.Curve
 import Moonlight.Planar.Exact
-  ( ExactVector (..), ScalarRefinementError (..), UnitInterval
+  ( ExactRational, ExactVector (..), ScalarRefinementError (..), UnitInterval
   , addExactVectors, blendPositive, divideByPositive, exactHalf, exactPoint
-  , exactPointCoordinates, exactRational, positiveExact, positiveExactValue
+  , exactPointCoordinates, exactRational, exactThird, positiveExact, positiveExactValue
   , positiveOne, positiveSumSquares, positiveTwo, ratioPositive
   , translateExactPoint, unitHalf, unitInterval, unitIntervalValue, unitOne, unitZero
   )
@@ -23,6 +24,10 @@ tests = sequence_
   , testCircles
   , testJets
   , testAffineActions
+  , testSubdivision
+  , testRestriction
+  , testStepJets
+  , testRationalJetOracles
   , putStrLn "curve: ok"
   ]
 
@@ -74,7 +79,7 @@ testParameterizedLaws = do
     assertEqual "evaluation starts at zero" zero (evaluateStep unitZero step)
     assertEqual "evaluation ends at displacement" (curveStepEnd step) (evaluateStep unitOne step)
     assertEqual "reversal involution" step (reverseStep (reverseStep step))
-    let (left, right) = splitStepHalf step
+    let (left, right) = splitStep unitHalf step
     assertEqual "split endpoint" (evaluateStep unitHalf step) (curveStepEnd left)
     assertEqual "split displacement"
       (curveStepEnd step) (addExactVectors (curveStepEnd left) (curveStepEnd right))
@@ -179,17 +184,224 @@ testAffineActions = do
     (trailDisplacement (openTrail (closedTrailSteps (transformClosedTrail b closed))))
   traverse_ (\step -> do
     let transformed = transformStep a step
-        (left,right) = splitStepHalf step
     assertEqual "relative step ignores translation" step (transformStep translation step)
-    assertEqual "subdivision commutes with affine action"
-      (transformStep a left, transformStep a right)
-      (splitStepHalf transformed)
     traverse_ (\t -> do
+      let (left, right) = splitStep t step
+      assertEqual "subdivision commutes with affine action"
+        (transformStep a left, transformStep a right)
+        (splitStep t transformed)
       assertEqual "evaluation commutes with affine action"
         (transformVector a (evaluateStep t step)) (evaluateStep t transformed)
       assertEqual "point and vector actions agree at every placed sample"
         (transformPoint a (translateExactPoint anchor (evaluateStep t step)))
         (translateExactPoint (transformPoint a anchor) (evaluateStep t transformed))) ts) steps
+
+-- | The shared fixtures plus positive weights at both extremes in both
+-- positions, and curves collapsed to a point or onto a segment.
+lawSteps :: IO [CurveStep]
+lawSteps = do
+  large <- requireRight "large weight" (positiveExact 1000)
+  let small = ratioPositive positiveOne large
+      extreme u v = curveStep (rationalQuadratic (ExactVector 5 (-3)) u v) (ExactVector 2 7)
+  pure (steps <>
+    [ extreme small large
+    , extreme large small
+    , extreme small small
+    , extreme large large
+    , curveStep (quadratic zero) zero
+    , curveStep (cubic zero zero) zero
+    , curveStep (rationalQuadratic zero large small) zero
+    , curveStep (cubic (ExactVector 1 2) (ExactVector 2 4)) (ExactVector 3 6)
+    , curveStep (rationalQuadratic (ExactVector 1 1) small large) (ExactVector 3 3)
+    ])
+
+testSubdivision :: IO ()
+testSubdivision = do
+  ts <- parameters
+  fixtures <- lawSteps
+  traverse_ (\step -> traverse_ (checkSplit ts step) ts) fixtures
+ where
+  checkSplit :: [UnitInterval] -> CurveStep -> UnitInterval -> IO ()
+  checkSplit ts step t = do
+    let (left, right) = splitStep t step
+        s = unitIntervalValue t
+    assertEqual "split point" (evaluateStep t step) (curveStepEnd left)
+    assertEqual "split displacement"
+      (curveStepEnd step) (addExactVectors (curveStepEnd left) (curveStepEnd right))
+    traverse_ (\u -> do
+      let w = unitIntervalValue u
+      inner <- unit "left source parameter" (s * w)
+      outer <- unit "right source parameter" (s + (1 - s) * w)
+      let innerJet = jetStep inner step
+          outerJet = jetStep outer step
+          leftJet = jetStep u left
+          rightJet = jetStep u right
+      assertEqual "left split parameterization" (evaluateStep inner step) (evaluateStep u left)
+      assertEqual "right split parameterization" (evaluateStep outer step)
+        (addExactVectors (curveStepEnd left) (evaluateStep u right))
+      assertEqual "left first derivative chain factor"
+        (scale s (stepJetFirst innerJet)) (stepJetFirst leftJet)
+      assertEqual "left second derivative chain factor"
+        (scale (s * s) (stepJetSecond innerJet)) (stepJetSecond leftJet)
+      assertEqual "right first derivative chain factor"
+        (scale (1 - s) (stepJetFirst outerJet)) (stepJetFirst rightJet)
+      assertEqual "right second derivative chain factor"
+        (scale ((1 - s) * (1 - s)) (stepJetSecond outerJet)) (stepJetSecond rightJet)) ts
+
+testRestriction :: IO ()
+testRestriction = do
+  ts <- parameters
+  fixtures <- lawSteps
+  third <- unit "third" exactThird
+  full <- requireRight "full span" (parameterSpan unitZero unitOne)
+  assertEqual "reversed span refused"
+    (Left (ReversedParameterSpan unitHalf third)) (parameterSpan unitHalf third)
+  traverse_ (\step -> do
+    let located = locate anchor step
+    assertEqual "full-span restriction is the located step" located (restrictStep full located)
+    traverse_ (\from -> traverse_ (checkSpan ts located from) ts) ts) fixtures
+ where
+  anchor = exactPoint 2 7
+  checkSpan :: [UnitInterval] -> Located CurveStep -> UnitInterval -> UnitInterval -> IO ()
+  checkSpan ts located from to
+    | from > to = assertEqual "reversed span refused"
+        (Left (ReversedParameterSpan from to)) (parameterSpan from to)
+    | otherwise = do
+        range <- requireRight "ordered span" (parameterSpan from to)
+        let restricted = restrictStep range located
+            step = locatedValue located
+            local = locatedValue restricted
+            start = unitIntervalValue from
+            width = unitIntervalValue to - start
+            place = translateExactPoint (location located)
+            placeLocal = translateExactPoint (location restricted)
+        assertEqual "span retains its endpoints"
+          (from, to) (parameterSpanFrom range, parameterSpanTo range)
+        assertEqual "restriction is anchored at the source point"
+          (place (evaluateStep from step)) (location restricted)
+        when (from == to) $
+          assertEqual "equal-endpoint restriction is stationary"
+            True (all (== zero) (stepControlPoints local))
+        traverse_ (\u -> do
+          source <- unit "restricted source parameter" (start + width * unitIntervalValue u)
+          let sourceJet = jetStep source step
+              localJet = jetStep u local
+          assertEqual "restriction parameterization"
+            (place (evaluateStep source step)) (placeLocal (evaluateStep u local))
+          assertEqual "restriction first derivative chain factor"
+            (scale width (stepJetFirst sourceJet)) (stepJetFirst localJet)
+          assertEqual "restriction second derivative chain factor"
+            (scale (width * width) (stepJetSecond sourceJet)) (stepJetSecond localJet)) ts
+
+testStepJets :: IO ()
+testStepJets = do
+  ts <- parameters
+  fixtures <- lawSteps
+  assertEqual "stationary step has a zero jet"
+    (zero, zero, zero) (jetParts (jetStep unitHalf (curveStep line zero)))
+  traverse_ (\step -> do
+    assertEqual "start jet is the jet at zero" (startJet step) (stepJetFirst (jetStep unitZero step))
+    assertEqual "end jet is the jet at one" (endJet step) (stepJetFirst (jetStep unitOne step))
+    traverse_ (checkJet ts step) ts) fixtures
+ where
+  placements =
+    [ affine2 (ExactVector (-2) 1) (ExactVector 3 4) (ExactVector 8 5)
+    , affine2 (ExactVector 1 2) (ExactVector 2 4) (ExactVector (-3) 2)
+    ]
+  checkJet :: [UnitInterval] -> CurveStep -> UnitInterval -> IO ()
+  checkJet ts step u = do
+    let jet = jetStep u step
+        w = unitIntervalValue u
+    mirrored <- unit "mirrored parameter" (1 - w)
+    let mirror = jetStep mirrored step
+        reversed = jetStep u (reverseStep step)
+    assertEqual "jet value is evaluation" (evaluateStep u step) (stepJetValue jet)
+    assertEqual "reversed jet value"
+      (stepJetValue mirror) (addExactVectors (curveStepEnd step) (stepJetValue reversed))
+    assertEqual "reversed first derivative" (scale (-1) (stepJetFirst mirror)) (stepJetFirst reversed)
+    assertEqual "reversed second derivative" (stepJetSecond mirror) (stepJetSecond reversed)
+    traverse_ (\placement -> assertEqual "jet commutes with the affine linear part"
+      (mapJet placement jet) (jetParts (jetStep u (transformStep placement step)))) placements
+    -- Independent of the Bernstein difference forms: a polynomial's Taylor
+    -- series terminates, so evaluation elsewhere is exactly recovered.
+    traverse_ (\third -> traverse_ (\v -> do
+      let h = unitIntervalValue v - w
+      assertEqual "polynomial Taylor expansion terminates" (evaluateStep v step)
+        (addExactVectors (stepJetValue jet)
+          (addExactVectors (scale h (stepJetFirst jet))
+            (addExactVectors (scale (h * h * exactHalf) (stepJetSecond jet))
+              (scale (h * h * h * exactHalf * exactThird) third))))) ts)
+      (polynomialThirdDerivative step)
+
+polynomialThirdDerivative :: CurveStep -> Maybe ExactVector
+polynomialThirdDerivative step = case shapeView (curveStepShape step) of
+  LinearView -> Just zero
+  QuadraticView _ -> Just zero
+  CubicView a b ->
+    Just (scale 6 (addExactVectors (curveStepEnd step) (scale 3 (addExactVectors a (scale (-1) b)))))
+  RationalQuadraticView {} -> Nothing
+
+-- | Rational derivatives against oracles that share none of the quotient
+-- arithmetic: the circle's constant radius, and the numerator and weight
+-- polynomials differentiated independently in the power basis.
+testRationalJetOracles :: IO ()
+testRationalJetOracles = do
+  ts <- parameters
+  fixtures <- lawSteps
+  let located = circle positiveTwo
+      segments = toList (closedTrailSteps (locatedValue located))
+      anchors = scanl (\anchor step -> translateExactPoint anchor (curveStepEnd step))
+        (location located) segments
+  traverse_ (\(anchor, step) -> traverse_ (checkCircle anchor step) ts) (zip anchors segments)
+  traverse_ (\step -> traverse_ (checkQuotient step) ts) (fixtures <> segments)
+ where
+  checkCircle anchor step t = do
+    let jet = jetStep t step
+        (x, y) = exactPointCoordinates (translateExactPoint anchor (stepJetValue jet))
+        radius = ExactVector x y
+        first = stepJetFirst jet
+    assertEqual "circle velocity is tangent" 0 (dot radius first)
+    assertEqual "circle second-order radius law" 0 (dot first first + dot radius (stepJetSecond jet))
+  checkQuotient step parameter = case shapeView (curveStepShape step) of
+    RationalQuadraticView control u v -> do
+      let t = unitIntervalValue parameter
+          s = 1 - t
+          a = positiveExactValue u
+          b = positiveExactValue v
+          e = curveStepEnd step
+          jet = jetStep parameter step
+          value = stepJetValue jet
+          first = stepJetFirst jet
+          w0 = s * s + 2 * a * t * s + b * t * t
+          w1 = 2 * a * (1 - 2 * t) - 2 * s + 2 * b * t
+          w2 = 2 - 4 * a + 2 * b
+          n0 = addExactVectors (scale (2 * a * t * s) control) (scale (b * t * t) e)
+          n1 = addExactVectors (scale (2 * a * (1 - 2 * t)) control) (scale (2 * b * t) e)
+          n2 = addExactVectors (scale (-4 * a) control) (scale (2 * b) e)
+      assertEqual "rational numerator is weight times value" n0 (scale w0 value)
+      assertEqual "rational first quotient rule" n1
+        (addExactVectors (scale w1 value) (scale w0 first))
+      assertEqual "rational second quotient rule" n2
+        (addExactVectors (scale w2 value)
+          (addExactVectors (scale (2 * w1) first) (scale w0 (stepJetSecond jet))))
+    _ -> pure ()
+
+unit :: String -> ExactRational -> IO UnitInterval
+unit label = requireRight label . unitInterval
+
+scale :: ExactRational -> ExactVector -> ExactVector
+scale s (ExactVector x y) = ExactVector (s * x) (s * y)
+
+dot :: ExactVector -> ExactVector -> ExactRational
+dot (ExactVector ax ay) (ExactVector bx by) = ax * bx + ay * by
+
+jetParts :: StepJet -> (ExactVector, ExactVector, ExactVector)
+jetParts jet = (stepJetValue jet, stepJetFirst jet, stepJetSecond jet)
+
+mapJet :: Affine2 -> StepJet -> (ExactVector, ExactVector, ExactVector)
+mapJet placement jet =
+  let (value, first, second) = jetParts jet
+   in (transformVector placement value, transformVector placement first, transformVector placement second)
 
 zero :: ExactVector
 zero = ExactVector 0 0

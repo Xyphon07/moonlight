@@ -103,19 +103,20 @@ testConic = do
 testRegion :: IO ()
 testRegion = do
   policy <- makePolicy 1 identityAffine2 8 100
+  budget <- requireRight "topology budget" (subdivisionBudget 8 256 256)
   let outer = closed (point 0 0) [vector 4 0, vector 0 4, vector (-4) 0]
       hole = closed (point 1 1) [vector 0 1, vector 1 0, vector 0 (-1)]
-  (region, receipts) <- requireRight "explicit polygon with hole"
-    (lowerSimpleRegion policy [CurveComponent outer [hole]])
+  (region, receipts, _) <- requireRight "explicit polygon with hole"
+    (lowerSimpleRegion policy budget [CurveComponent outer [hole]])
   assertEqual "one receipt per contour" 2 (length receipts)
   assertEqual "outer interior" RegionInterior (regionPointLocation region (point 3 3))
   assertEqual "hole exterior" RegionExterior
     (regionPointLocation region (point (1 + exactHalf) (1 + exactHalf)))
   let crossing = closed (point 0 0) [vector 2 2, vector (-2) 0, vector 2 (-2)]
   assertRefusal "sampled crossing refuses simple region"
-    (lowerSimpleRegion policy [CurveComponent crossing []])
+    (lowerSimpleRegion policy budget [CurveComponent crossing []])
   assertRefusal "outer winding cannot masquerade as a hole"
-    (lowerSimpleRegion policy [CurveComponent outer [outer]])
+    (lowerSimpleRegion policy budget [CurveComponent outer [outer]])
 
 testCertificateAdmission :: IO ()
 testCertificateAdmission = do

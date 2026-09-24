@@ -17,18 +17,23 @@ module Moonlight.Planar.Exhibit.EquationalGarden
 
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Sequence as Seq
+import Data.Bifunctor (first)
 import Moonlight.Planar.Affine
-  ( Affine2, AffineIso2, affine2, affineIso2, affineIsoMap, identityAffineIso2
-  , translationAffineIso2 )
+  ( Affine2, AffineIso2, affine2, affineIso2, affineIsoMap, composeAffineIso2
+  , identityAffineIso2, translationAffineIso2 )
 import Moonlight.Planar.Curve
   ( ClosedTrail, Located, OpenTrail, Subpath (..), circle, ellipse, path
   , locate, openTrail, curveStep, line, transformLocatedClosedTrail )
 import Moonlight.Planar.Curve.Authoring
   ( Knot (..), ProfileStation (..), bowedTrail, cardinalOpen, polygonTrail, profileOutline )
+import Moonlight.Planar.Curve.Frame
+  ( FrameError, FramePolicy, FrameSite (..), exactTrailSite, framePolicy
+  , measuredFrameIso, regularFrame )
+import Moonlight.Planar.Curve.Measure (RadicalPrecisionError, radicalPrecision)
 import Moonlight.Planar.Exact
-  ( ExactPoint, ExactRational, ExactVector (..), PositiveExact, UnitInterval
-  , exactHalf, exactThird, exactPoint, exactPointCoordinates, positiveOne
-  , positiveTwo, unitHalf, unitOne, unitZero, unitIntervalValue
+  ( ExactPoint, ExactRational, ExactVector (..), PositiveExact, ScalarRefinementError
+  , UnitInterval, exactHalf, exactThird, exactPoint, exactPointCoordinates, positiveExact
+  , positiveOne, positiveTwo, unitHalf, unitOne, unitZero, unitIntervalValue
   , boundsMinimumX, boundsMaximumX, boundsMinimumY, boundsMaximumY )
 import Moonlight.Planar.Illustration
   ( Color (..), FillRule (..), GradientStop (..), LineCap (..), LineJoin (..)
@@ -121,27 +126,38 @@ data LeafPort = LeafRoot
 data BlossomPort = BlossomRoot
   deriving stock (Eq, Ord, Show)
 
-data GardenAttachmentError = SingularGardenSocket !ExactPoint !StemPort
+-- | An authored socket matrix that collapses, a stem site with no regular
+-- tangent frame, or a refused frame policy scalar.
+data GardenAttachmentError
+  = SingularGardenSocket !ExactPoint !StemPort
+  | GardenFrameRefused !ExactPoint !StemPort !FrameError
+  | GardenFramePrecisionRefused !RadicalPrecisionError
+  | GardenFrameToleranceRefused !ScalarRefinementError
   deriving stock (Eq, Show)
 
 -- An authored heterogeneous assembly, not a generic connection graph. Each
--- child retains its ports until the final ordered painting projection.
+-- child retains its ports until the final ordered painting projection. The
+-- stem trail is the one curve the stem paints and its sockets read.
 data GardenPlant = GardenPlant
-  { gardenStem :: !(Motif StemPort GardenPart)
+  { gardenStemTrail :: !(Located OpenTrail)
+  , gardenStem :: !(Motif StemPort GardenPart)
   , gardenLowerLeaf :: !(Motif LeafPort GardenPart)
   , gardenUpperLeaf :: !(Motif LeafPort GardenPart)
   , gardenBlossom :: !(Motif BlossomPort GardenPart)
   }
 
 gardenPlants :: GardenControls -> Either GardenAttachmentError [GardenPlant]
-gardenPlants controls = traverse assemble plants
+gardenPlants controls = do
+  policy <- stemFramePolicy
+  traverse (assemble policy) plants
  where
   leaf :: Motif LeafPort GardenPart
   leaf = leafMotif 24 (gardenBreeze controls)
-  assemble :: Plant -> Either GardenAttachmentError GardenPlant
-  assemble plant = do
-    stem <- stemMotif controls plant
-    pure (GardenPlant stem
+  assemble :: FramePolicy -> Plant -> Either GardenAttachmentError GardenPlant
+  assemble policy plant = do
+    let trail = stemTrail controls plant
+    stem <- stemMotif policy trail plant
+    pure (GardenPlant trail stem
       (attachMotif LeafRoot (motifPort stem LowerLeafSocket) leaf)
       (attachMotif LeafRoot (motifPort stem UpperLeafSocket) leaf)
       (attachMotif BlossomRoot (motifPort stem BlossomSocket)
@@ -160,8 +176,8 @@ gardenPicture controls = do
     <> annotate Ribbon ribbon
     <> annotate Fireflies fireflies
 
--- The origin, two interpolated leaf attachments and flower center are the
--- same values in stem and leaf authoring: no placement by sample index.
+-- | Breeze bends the stem by moving its interpolated knots. This authors the
+-- knots only; sockets read the stem trail itself, never this formula.
 stemStation :: GardenControls -> Plant -> ExactRational -> ExactPoint
 stemStation controls plant t =
   let (rx, ry) = exactPointCoordinates (plantRoot plant)
@@ -169,35 +185,56 @@ stemStation controls plant t =
       sway = 86 * (2 * unitIntervalValue (gardenBreeze controls) - 1)
    in exactPoint (rx + t * (fx - rx) + 4 * t * (1 - t) * sway) (ry + t * (fy - ry))
 
-plantStem :: GardenControls -> Plant -> Picture GardenPart
-plantStem controls plant =
-  let stem = cardinalOpen unitHalf $ Interpolating (plantRoot plant) :|
-        (Interpolating . stemStation controls plant <$> [exactThird, 2 * exactThird, 1])
-   in ink positiveTwo (RGB 26 73 72) stem
-        <> ink positiveOne (RGB 100 148 116) stem
+-- | The root, two leaf knots and the flower, interpolated once. Knot @k@ is
+-- the start of step @k@; the flower is the trail's end.
+stemTrail :: GardenControls -> Plant -> Located OpenTrail
+stemTrail controls plant = cardinalOpen unitHalf $ Interpolating (plantRoot plant) :|
+  (Interpolating . stemStation controls plant <$> [exactThird, 2 * exactThird, 1])
 
-stemMotif :: GardenControls -> Plant -> Either GardenAttachmentError (Motif StemPort GardenPart)
-stemMotif controls plant = do
-  lower <- admit LowerLeafSocket (leafSocket exactThird (-1) 1)
-  upper <- admit UpperLeafSocket (leafSocket (2 * exactThird) 1 (1 - exactThird))
+-- | Leaf frames are normalized to within 2^-20 of unit scale, so the authored
+-- leaf size survives the tangent frame.
+stemFramePolicy :: Either GardenAttachmentError FramePolicy
+stemFramePolicy = framePolicy
+  <$> first GardenFramePrecisionRefused (radicalPrecision 32)
+  <*> first GardenFrameToleranceRefused (positiveExact (exactHalf ^ (20 :: Int)))
+
+plantStem :: Located OpenTrail -> Picture GardenPart
+plantStem stem = ink positiveTwo (RGB 26 73 72) stem <> ink positiveOne (RGB 100 148 116) stem
+
+-- | Leaf sockets keep their authored knots and take the stem's tangent frame
+-- there; side and size are an authored lean relative to that tangent. The
+-- blossom socket keeps its authored tilt at the flower, the trail's end.
+stemMotif
+  :: FramePolicy -> Located OpenTrail -> Plant
+  -> Either GardenAttachmentError (Motif StemPort GardenPart)
+stemMotif policy stem plant = do
+  lower <- leafSocket LowerLeafSocket 1 (-1) 1
+  upper <- leafSocket UpperLeafSocket 2 1 (1 - exactThird)
   flower <- admit BlossomSocket $ affine2
     (ExactVector (plantScale plant) (plantTilt plant * plantScale plant * exactHalf))
     (ExactVector 0 (plantScale plant * (1 - exactHalf ^ (3 :: Int))))
     (pointVector (plantFlower plant))
-  pure $ motif (plantStem controls plant) $ \port -> case port of
+  pure $ motif (plantStem stem) $ \port -> case port of
     LowerLeafSocket -> lower
     UpperLeafSocket -> upper
     BlossomSocket -> flower
  where
   admit :: StemPort -> Affine2 -> Either GardenAttachmentError AffineIso2
   admit port = maybe (Left (SingularGardenSocket (plantRoot plant) port)) Right . affineIso2
-  leafSocket :: ExactRational -> ExactRational -> ExactRational -> Affine2
-  leafSocket t side size =
+  -- The quarter-turn taking the leaf's forward axis, local -y, onto the
+  -- frame's tangent, followed by the lean: on an upright stem this is the
+  -- former world-axis socket matrix.
+  leafSocket :: StemPort -> Int -> ExactRational -> ExactRational -> Either GardenAttachmentError AffineIso2
+  leafSocket port knot side size = do
     let scale = size * (exactHalf + plantScale plant * exactHalf)
-     in affine2
-          (ExactVector (scale * exactHalf) (side * scale))
-          (ExactVector (negate side * scale) (scale * exactHalf))
-          (pointVector (stemStation controls plant t))
+        refused = GardenFrameRefused (plantRoot plant) port
+    lean <- admit port $ affine2
+      (ExactVector (negate side * scale) (scale * exactHalf))
+      (ExactVector (negate scale * exactHalf) (negate side * scale))
+      (ExactVector 0 0)
+    site <- first refused (exactTrailSite (OpenSubpath stem) knot unitZero)
+    frame <- first refused (regularFrame policy (ExactSite site))
+    pure (composeAffineIso2 (measuredFrameIso frame) lean)
 
 leafMotif :: ExactRational -> UnitInterval -> Motif LeafPort GardenPart
 leafMotif width breeze = motif picture (const identityAffineIso2)

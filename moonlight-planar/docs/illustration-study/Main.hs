@@ -42,6 +42,8 @@ studyDocuments = do
   let gardenEdited = defaultGardenControls { blossomOpening = unitOne, gardenBreeze = unitOne }
   garden <- first show (gardenPicture defaultGardenControls)
   editedGarden <- first show (gardenPicture gardenEdited)
+  sword <- first show (spaceSwordPicture defaultSpaceSwordControls)
+  overchargedSword <- first show (spaceSwordPicture overchargedSpaceSwordControls)
   traverse (\(name, rendered) -> (name,) <$> first show rendered)
     [ ("knight-crescent.svg", renderSvg partName options (studyPicture defaultControls))
     , ("knight-crescent-edited.svg", renderSvg partName options (studyPicture edited))
@@ -51,8 +53,6 @@ studyDocuments = do
     , ("equational-garden-diagnostic.svg", renderDiagnosticSvg gardenPartName options garden)
     , ("equational-garden-layout.svg", renderSvg gardenPartName options (gardenLayoutPicture unitZero))
     , ("equational-garden-layout-edited.svg", renderSvg gardenPartName options (gardenLayoutPicture unitOne))
-    , ("space-sword.svg", renderSvg spaceSwordPartName options
-        (spaceSwordPicture defaultSpaceSwordControls))
-    , ("space-sword-overcharged.svg", renderSvg spaceSwordPartName options
-        (spaceSwordPicture overchargedSpaceSwordControls))
+    , ("space-sword.svg", renderSvg spaceSwordPartName options sword)
+    , ("space-sword-overcharged.svg", renderSvg spaceSwordPartName options overchargedSword)
     ]

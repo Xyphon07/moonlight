@@ -6,9 +6,15 @@ module Moonlight.Planar.Exhibit.SpaceSword
   , overchargedSpaceSwordControls
   , SpaceSwordPart (..)
   , spaceSwordPartName
+  , SpaceSwordError (..)
   , spaceSwordPicture
+  , channelStations
+  , channelCenterline
+  , runeMeasurePolicy
+  , runeFrames
   ) where
 
+import Data.Bifunctor (first)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Sequence as Seq
 import Moonlight.Planar.Affine
@@ -18,10 +24,16 @@ import Moonlight.Planar.Curve
 import Moonlight.Planar.Curve.Authoring
   ( Knot (Interpolating), ProfileStation (..), bowedTrail, cardinalOpen
   , polygonTrail, profileOutline )
+import Moonlight.Planar.Curve.Frame
+  ( FrameError, FramePolicy, FrameSite (..), MeasuredFrame, RunError, fractionRun
+  , framePolicy, measuredFrameIso, regularFrame, sampleRun )
+import Moonlight.Planar.Curve.Measure
+  ( MeasureError, MeasurePolicy, RadicalPrecisionError, SubdivisionBudgetError
+  , measurePolicy, measureSubpath, radicalPrecision, subdivisionBudget )
 import Moonlight.Planar.Exact
-  ( ExactPoint, ExactRational, ExactVector (..), PositiveExact, UnitInterval
-  , exactHalf, exactPoint, exactPointCoordinates, exactThird, positiveOne, positiveTwo
-  , unitHalf, unitOne, unitZero, unitIntervalValue )
+  ( ExactPoint, ExactRational, ExactVector (..), PositiveExact, ScalarRefinementError
+  , UnitInterval, divideByPositive, exactHalf, exactPoint, exactPointCoordinates, exactThird, positiveExact
+  , positiveOne, positiveTwo, unitHalf, unitInterval, unitOne, unitZero, unitIntervalValue )
 import Moonlight.Planar.Illustration
   ( Color (..), FillRule (..), GradientStop (..), LineCap (..), LineJoin (..)
   , Paint (..), Picture, StrokeStyle (..), StrokeUnits (..), annotate, clip
@@ -74,23 +86,34 @@ data RunePort = RuneRoot
 
 data HiltPort = BladeSocket
 
-spaceSwordPicture :: SpaceSwordControls -> Picture SpaceSwordPart
-spaceSwordPicture controls =
-  annotate VoidField voidField
-    <> annotate NebulaVeil nebulaVeil
-    <> swordAssembly controls
+-- | A refused authored scalar or policy, an unmeasured centerline, or a rune
+-- station without a regular frame.
+data SpaceSwordError
+  = SwordPrecisionRefused !RadicalPrecisionError
+  | SwordScalarRefused !ScalarRefinementError
+  | SwordMeasurePolicyRefused !SubdivisionBudgetError
+  | SwordRunRefused !RunError
+  | SwordMeasureRefused !MeasureError
+  | SwordFrameRefused !FrameError
+  deriving stock (Eq, Show)
+
+spaceSwordPicture :: SpaceSwordControls -> Either SpaceSwordError (Picture SpaceSwordPart)
+spaceSwordPicture controls = do
+  assembly <- swordAssembly controls
+  pure (annotate VoidField voidField <> annotate NebulaVeil nebulaVeil <> assembly)
 
 -- | Blade and hilt are attached in their authoring frame, then the complete
 -- assembly receives one affine action. Geometry, clips, paint and ornament
 -- therefore cannot drift apart when the weapon is posed.
-swordAssembly :: SpaceSwordControls -> Picture SpaceSwordPart
-swordAssembly controls =
+swordAssembly :: SpaceSwordControls -> Either SpaceSwordError (Picture SpaceSwordPart)
+swordAssembly controls = do
+  bladeValue <- bladeMotif controls
   let hilt = hiltMotif
-      blade = attachMotif BladeRoot (motifPort hilt BladeSocket) (bladeMotif controls)
+      blade = attachMotif BladeRoot (motifPort hilt BladeSocket) bladeValue
       assembled = annotate IonWake (ionWake controls)
         <> motifPicture blade
         <> motifPicture hilt
-   in place swordPose assembled
+  pure (place swordPose assembled)
 
 -- | A similarity pose: orthogonal columns of equal squared length. The socket
 -- at @(604,745)@ lands at @(350,710)@, sending the blade toward the upper right.
@@ -102,15 +125,17 @@ swordPose = affine2
  where
   threeQuarters = exactHalf + exactHalf * exactHalf
 
-bladeMotif :: SpaceSwordControls -> Motif BladePort SpaceSwordPart
-bladeMotif controls = motif picture port
+bladeMotif :: SpaceSwordControls -> Either SpaceSwordError (Motif BladePort SpaceSwordPart)
+bladeMotif controls = do
+  runes <- runeColumn controls
+  pure (motif (picture runes) port)
  where
   charge = unitIntervalValue (bladeCharge controls)
   sweep = bladeSweep controls
   aura = bladeProfile (42 + 6 * charge) sweep
   shell = bladeProfile 34 sweep
-  channel = channelProfile charge sweep
-  picture = annotate BladeAura
+  channel = profileOutline channelTension (channelStations charge sweep)
+  picture runes = annotate BladeAura
       (opacity unitHalf (fill NonZero (Solid (RGB 27 118 151)) (aura :| [])))
     <> annotate BladeShell
       (fill NonZero shellPaint (shell :| [])
@@ -120,7 +145,7 @@ bladeMotif controls = motif picture port
     <> annotate BladeCore
       (fill NonZero corePaint (channel :| [])
         <> outline (RGB 128 232 215) channel)
-    <> annotate BladeRunes (runeColumn controls)
+    <> annotate BladeRunes runes
   port selected = case selected of
     BladeRoot -> identityAffineIso2
     BladeTip -> translationAffineIso2 (ExactVector sweep (-625))
@@ -139,14 +164,26 @@ bladeProfile width sweep = profileOutline unitHalf $
   , ProfileStation (exactPoint sweep (-625)) (ExactVector 0 0)
   ]
 
-channelProfile :: ExactRational -> ExactRational -> Located ClosedTrail
-channelProfile charge sweep = profileOutline unitHalf $
+-- | The channel's author-owned stations, factored once: its painted outline
+-- and its unpainted centerline are both derived from them at one tension.
+channelStations :: ExactRational -> ExactRational -> NonEmpty ProfileStation
+channelStations charge sweep =
   ProfileStation (exactPoint 8 (-28)) (ExactVector (4 + 2 * charge) 0) :|
   [ ProfileStation (exactPoint 12 (-145)) (ExactVector (5 + 2 * charge) 0)
   , ProfileStation (exactPoint 19 (-315)) (ExactVector (6 + 2 * charge) 0)
   , ProfileStation (exactPoint (sweep - 7) (-490)) (ExactVector (4 + charge) 0)
   , ProfileStation (exactPoint sweep (-579)) (ExactVector 0 0)
   ]
+
+channelTension :: UnitInterval
+channelTension = unitHalf
+
+-- | The exact midpoint of the channel's two rails: cardinal interpolation is
+-- affine-linear in its knots, so interpolating the station centers at the
+-- rails' tension is their average. Charge moves only half-spans, not this.
+channelCenterline :: ExactRational -> ExactRational -> Located OpenTrail
+channelCenterline charge sweep = cardinalOpen channelTension
+  ((\(ProfileStation center _) -> Interpolating center) <$> channelStations charge sweep)
 
 bladeSpineFacet :: ExactRational -> Picture SpaceSwordPart
 bladeSpineFacet sweep = fill NonZero (Solid (RGB 8 18 30)) $
@@ -180,26 +217,49 @@ bladeReflection sweep = opacity unitHalf $ fill NonZero (Solid (RGB 220 239 224)
     , exactPoint 31 (-386)
     ]) :| []
 
-runeColumn :: SpaceSwordControls -> Picture SpaceSwordPart
-runeColumn controls = foldMap placeRune runeStations
+-- | Three runes evenly spaced by arc length over the middle three fifths of
+-- the channel centerline, each attached to the tangent frame at its station.
+runeColumn :: SpaceSwordControls -> Either SpaceSwordError (Picture SpaceSwordPart)
+runeColumn controls = foldMap attached <$> runeFrames controls
  where
-  charge = unitIntervalValue (bladeCharge controls)
-  sweep = bladeSweep controls
-  rune = runeMotif charge
-  placeRune :: (ExactRational, ExactRational) -> Picture SpaceSwordPart
-  placeRune (x,y) = motifPicture $
-    attachMotif RuneRoot (translationAffineIso2 (ExactVector x y)) rune
-  runeStations :: [(ExactRational, ExactRational)]
-  runeStations = [(12,-136),(21,-322),(sweep-6,-474)]
+  rune = runeMotif (unitIntervalValue (bladeCharge controls))
+  attached :: MeasuredFrame -> Picture SpaceSwordPart
+  attached frame = motifPicture (attachMotif RuneRoot (measuredFrameIso frame) rune)
 
+-- | Arc-length tolerance of an eighth of a unit; frames within 2^-20 of unit.
+runeMeasurePolicy :: Either SpaceSwordError (MeasurePolicy, FramePolicy)
+runeMeasurePolicy = do
+  precision <- first SwordPrecisionRefused (radicalPrecision 32)
+  tolerance <- first SwordScalarRefused (positiveExact (exactHalf ^ (3 :: Int)))
+  deficit <- first SwordScalarRefused (positiveExact (exactHalf ^ (20 :: Int)))
+  budget <- first SwordMeasurePolicyRefused (subdivisionBudget 24 4096 4096)
+  pure (measurePolicy tolerance precision budget, framePolicy precision deficit)
+
+-- | The rune stations in run order: an even run of three over fractions 1/5
+-- to 4/5 of the measured centerline, framed where the centerline passes.
+runeFrames :: SpaceSwordControls -> Either SpaceSwordError (NonEmpty MeasuredFrame)
+runeFrames controls = do
+  (measuring, framing) <- runeMeasurePolicy
+  five <- first SwordScalarRefused (positiveExact 5)
+  firstStation <- first SwordScalarRefused (unitInterval (divideByPositive 1 five))
+  finalStation <- first SwordScalarRefused (unitInterval (divideByPositive 4 five))
+  run <- first SwordRunRefused (fractionRun 3 firstStation finalStation)
+  measured <- first SwordMeasureRefused (measureSubpath measuring (OpenSubpath centerline))
+  samples <- first SwordRunRefused (sampleRun run measured)
+  first SwordFrameRefused (traverse (regularFrame framing . SampledSite) samples)
+ where
+  centerline = channelCenterline (unitIntervalValue (bladeCharge controls)) (bladeSweep controls)
+
+-- | A diamond authored in its station's frame: its forward tip on local +x,
+-- the tangent, and its narrow axis on local +y, the left normal.
 runeMotif :: ExactRational -> Motif RunePort SpaceSwordPart
 runeMotif charge = motif picture (const identityAffineIso2)
  where
   size = 5 + 2 * charge
-  rune = polygonTrail (exactPoint 0 (negate size) :|
-    [ exactPoint (size * exactHalf) 0
-    , exactPoint 0 size
-    , exactPoint (negate (size * exactHalf)) 0
+  rune = polygonTrail (exactPoint size 0 :|
+    [ exactPoint 0 (size * exactHalf)
+    , exactPoint (negate size) 0
+    , exactPoint 0 (negate (size * exactHalf))
     ])
   picture :: Picture SpaceSwordPart
   picture = opacity unitHalf (fill NonZero (Solid (RGB 108 221 202)) (rune :| []))

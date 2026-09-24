@@ -30,24 +30,15 @@ import Control.Monad (unless)
 import Data.Bifunctor (first)
 import Data.Foldable (traverse_)
 import Data.List (sort)
-import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Vector as V
 import Moonlight.Planar.Exact
-  ( ExactBounds
-  , boundsOverlap
-  , pointInBounds
-  , ExactPoint
-  , ExactSegment
+  ( ExactPoint
   , SegmentRelation (..)
   , exactOnClosedSegment
   , exactOrient2d
-  , exactPointCross
-  , exactPointCoordinates
-  , exactSegment
   , exactSegmentEndpoints
   )
 import Moonlight.Planar.Internal.BoundaryCycle
@@ -61,8 +52,18 @@ import Moonlight.Planar.Internal.ExactSegmentEvents
   , exactSegmentEventPlan
   , exactSegmentRelationMap
   )
-import Moonlight.Planar.Internal.ExactRational
-  ( exactSignum )
+import Moonlight.Planar.Internal.Region.Loop
+  ( LoopRelationWitness (..)
+  , PreparedLoop
+  , crossLoopRelations
+  , firstPreparedPoint
+  , loopSegments
+  , loopWinding
+  , pointLocationInLoop
+  , preparedBounds
+  , preparedPointLocation
+  , prepareLoop
+  )
 import Moonlight.Planar.Internal.Region.Publication (labelledPlanarLayer)
 import Moonlight.Planar.Internal.Region.Bounds
   ( componentBounds
@@ -85,27 +86,6 @@ import Moonlight.Planar.Internal.Region.Types
   , RegionPublicationError (..)
   , RegionValidationError (..)
   )
-
-data LoopRelationWitness = LoopRelationWitness
-  !Int
-  !Int
-  !ExactSegment
-  !ExactSegment
-  !SegmentRelation
-
--- | One admitted loop with the bounds and segment vector every relation
--- question reads, built once per loop rather than once per pair asked.
-data PreparedLoop = PreparedLoop
-  !ExactLoop
-  !ExactBounds
-  !(V.Vector ExactSegment)
-
-prepareLoop :: ExactLoop -> Either RegionValidationError PreparedLoop
-prepareLoop loop =
-  PreparedLoop loop (exactLoopBounds loop) <$> loopSegments (exactLoopPoints loop)
-
-preparedBounds :: PreparedLoop -> ExactBounds
-preparedBounds (PreparedLoop _ bounds _) = bounds
 
 -- | Admit and canonicalize one simple exact cycle.
 exactLoop :: NonEmpty ExactPoint -> Either RegionValidationError ExactLoop
@@ -277,49 +257,6 @@ validateSimpleLoop points = do
  where
   segmentCount = NonEmpty.length points
 
-loopSegments
-  :: NonEmpty ExactPoint
-  -> Either RegionValidationError (V.Vector ExactSegment)
-loopSegments points =
-  V.fromList
-    <$> traverse
-      (\(from, to) ->
-         first (const (RegionLoopDegenerate (NonEmpty.toList points)))
-           (exactSegment from to))
-      (cyclePairs points)
-
-loopWinding :: ExactLoop -> Ordering
-loopWinding (ExactLoop points) =
-  exactSignum
-    ( List.foldl'
-        (\signedArea (from, to) ->
-           signedArea + exactPointCross from to)
-        0
-        (cyclePairs points)
-    )
-
-pointLocationInLoop :: ExactLoop -> ExactPoint -> RegionPointLocation
-pointLocationInLoop loop = pointLocationInLoopWithin (exactLoopBounds loop) loop
-
-preparedPointLocation :: PreparedLoop -> ExactPoint -> RegionPointLocation
-preparedPointLocation (PreparedLoop loop bounds _) = pointLocationInLoopWithin bounds loop
-
-pointLocationInLoopWithin :: ExactBounds -> ExactLoop -> ExactPoint -> RegionPointLocation
-pointLocationInLoopWithin bounds loop query
-  | not (pointInBounds query bounds) = RegionExterior
-  | any (\(from, to) -> exactOnClosedSegment from to query) edges = RegionOnBoundary
-  | odd (length (filter crossesRay edges)) = RegionInterior
-  | otherwise = RegionExterior
- where
-  edges = cyclePairs (exactLoopPoints loop)
-  (_, py) = exactPointCoordinates query
-  crossesRay (from, to) =
-    let (_, ay) = exactPointCoordinates from
-        (_, by) = exactPointCoordinates to
-        orientation = exactOrient2d from to query
-     in (ay <= py && py < by && orientation == GT)
-          || (by <= py && py < ay && orientation == LT)
-
 componentPointLocation :: PolygonComponent -> ExactPoint -> RegionPointLocation
 componentPointLocation component query =
   case pointLocationInLoop (polygonOuterLoop component) query of
@@ -332,30 +269,6 @@ componentPointLocation component query =
       RegionExterior -> remaining
       RegionOnBoundary -> RegionOnBoundary
       RegionInterior -> RegionExterior
-
-crossLoopRelations
-  :: PreparedLoop
-  -> PreparedLoop
-  -> Either RegionValidationError [LoopRelationWitness]
-crossLoopRelations (PreparedLoop _ leftBounds leftSegments) (PreparedLoop _ rightBounds rightSegments)
-  | not (boundsOverlap leftBounds rightBounds) = Right []
-  | otherwise = do
-      let leftCount = V.length leftSegments
-      plan <-
-        first RegionSegmentEventsInvalid
-          (exactSegmentEventPlan (leftSegments <> rightSegments))
-      pure
-        [ LoopRelationWitness
-            leftIndex
-            (rightIndex - leftCount)
-            (leftSegments V.! leftIndex)
-            (rightSegments V.! (rightIndex - leftCount))
-            relation
-        | ((ExactSweepSegmentId leftIndex, ExactSweepSegmentId rightIndex), relation) <-
-            Map.toAscList (exactSegmentRelationMap plan)
-        , leftIndex < leftCount
-        , rightIndex >= leftCount
-        ]
 
 loopContainsInteriorPoint :: PreparedLoop -> PreparedLoop -> Bool
 loopContainsInteriorPoint container candidate =
@@ -417,9 +330,6 @@ componentContainsInteriorPoint container candidate =
   any
     ((== RegionInterior) . componentPointLocation container)
     (NonEmpty.toList (exactLoopPoints (polygonOuterLoop candidate)))
-
-firstPreparedPoint :: PreparedLoop -> ExactPoint
-firstPreparedPoint (PreparedLoop (ExactLoop (point :| _)) _ _) = point
 
 regionsInteriorsOverlap
   :: PlanarRegion

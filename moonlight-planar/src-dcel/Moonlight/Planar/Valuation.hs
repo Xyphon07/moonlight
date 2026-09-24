@@ -46,8 +46,6 @@ module Moonlight.Planar.Valuation
 
 import Control.DeepSeq (NFData)
 import Data.Bifunctor (first)
-import Data.Bits (shiftL)
-import Data.Foldable (foldlM)
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import Data.List.NonEmpty (NonEmpty (..))
@@ -55,13 +53,11 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.IntSet as IntSet
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes)
 import qualified Data.Ratio as Ratio
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
-import Data.Word (Word64)
-import GHC.Float (castDoubleToWord64, castWord64ToDouble)
 import GHC.Generics (Generic)
 import Moonlight.Planar.Exact
   ( ExactBounds
@@ -99,16 +95,30 @@ import Moonlight.Planar.Internal.BoundaryCycle
   , cyclePairs
   , orderedPair
   )
-import Moonlight.Planar.Internal.Dyadic (integerBitLength)
 import Moonlight.Planar.Internal.ExactRational
   ( ExactRational
-  , exactRationalDenominator
+  , PositiveExact
   , exactRationalFromDyadic
-  , exactRationalFromFiniteDouble
   , exactRationalFromNormalizedRatio
-  , exactRationalIsZero
-  , exactRationalNumerator
-  , exactSignum
+  , positiveOne
+  , positiveTwo
+  , ratioPositive
+  )
+import Moonlight.Planar.Internal.Length
+  ( CertifiedInterval (..)
+  , ExactLengthExpression
+  , ExactLengthMeasurement
+  , ExactLengthTerm
+  , LengthError (..)
+  , exactLengthBounds
+  , exactLengthExpression
+  , exactLengthTerms
+  , lengthCoefficient
+  , lengthRadicand
+  , measureLengthExpression
+  , normalizeLengthContributions
+  , publicationPrecision
+  , scaleLengthExpression
   )
 import Moonlight.Planar.Internal.ExactSegmentEvents
   ( ExactSegmentEvent (..)
@@ -294,42 +304,6 @@ accumulateMomentEdge accumulated (from, to) =
               + (fromY * fromY + fromY * toY + toY * toY) * cross
         }
 
-data ExactLengthTerm = ExactLengthTerm
-  { lengthCoefficient :: !ExactRational
-  , lengthRadicand :: !Integer
-  }
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData)
-
--- | A normalized sum of rational coefficients times square roots of integer
--- radicands. No two radicands differ by a rational square, so equal lengths
--- are one term and rational length is the radicand-1 term; each radicand is
--- reduced by the square factors of the primes below 64 and by a perfect-square
--- cofactor. A squared prime above that bound inside a non-square cofactor is
--- beyond factoring-free reach, so the presentation is canonical within an
--- expression and across expressions only up to such factors; there is no
--- 'Eq' instance for that reason.
-newtype ExactLengthExpression = ExactLengthExpression [ExactLengthTerm]
-  deriving stock (Show, Generic)
-  deriving anyclass (NFData)
-
-exactLengthTerms :: ExactLengthExpression -> [ExactLengthTerm]
-exactLengthTerms (ExactLengthExpression terms) = terms
-
-data CertifiedInterval = CertifiedInterval
-  { intervalLower :: !Double
-  , intervalUpper :: !Double
-  }
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData)
-
-data ExactLengthMeasurement = ExactLengthMeasurement
-  { exactLengthExpression :: !ExactLengthExpression
-  , exactLengthBounds :: !CertifiedInterval
-  }
-  deriving stock (Show, Generic)
-  deriving anyclass (NFData)
-
 data PlanarValuations = PlanarValuations
   { valuationEuler :: !EulerCharacteristic
   , valuationArea :: !ExactArea
@@ -356,11 +330,13 @@ cellValuations (ExactCellSet incidence points selectedEdges selectedFaces) = do
       (cellFaceDoubleArea incidence points)
       selectedFaceIds
   edgeContributions <-
-    traverse
-      ( cellEdgeLengthContribution incidence points selectedFaces
-          . UndirectedEdgeId
-          . fromIntegral
+    Foldable.foldlM
+      ( \contributions ->
+          cellEdgeLengthContribution incidence points selectedFaces contributions
+            . UndirectedEdgeId
+            . fromIntegral
       )
+      []
       (IntSet.toAscList selectedEdges)
   assembleValuations
     (IntMap.size points - IntSet.size selectedEdges + sum (fmap (faceEulerContribution incidence) selectedFaceIds))
@@ -393,7 +369,7 @@ regionValuations (PlanarRegion components) = do
     euler
     doubleArea
     ( normalizeLengthContributions
-        (\(from, to) -> (oneHalf, segmentSquaredLength from to))
+        (\(from, to) -> (positiveHalf, segmentSquaredLength from to))
         boundaryAtoms
     )
 
@@ -425,7 +401,17 @@ planarValuationsPerimeter
   -> Either ValuationError ExactLengthMeasurement
 planarValuationsPerimeter valuations =
   measureLength
-    (scaleLengthExpression 2 (exactLengthExpression (valuationIntrinsic1 valuations)))
+    (scaleLengthExpression positiveTwo (exactLengthExpression (valuationIntrinsic1 valuations)))
+
+-- | Valuation lengths are published at the shared owner's binary64
+-- publication precision.
+measureLength
+  :: ExactLengthExpression
+  -> Either ValuationError ExactLengthMeasurement
+measureLength = first valuationLengthError . measureLengthExpression publicationPrecision
+
+valuationLengthError :: LengthError -> ValuationError
+valuationLengthError (LengthNegativeSquare square) = ValuationNegativeSquaredLength square
 
 cellFaceDoubleArea
   :: PlanarIncidence
@@ -439,23 +425,29 @@ cellFaceDoubleArea incidence points face =
     coordinates <- traverse (cellPoint points . incidenceOrigin incidence) edges
     pure (maybe 0 (orientedBoundaryDoubleArea . cyclePairs) (NonEmpty.nonEmpty coordinates))
 
+-- | Prepend the edge's boundary length contribution: an edge between two
+-- selected faces is interior and contributes nothing, an edge with one
+-- selected side contributes half, and a wire edge contributes whole.
 cellEdgeLengthContribution
   :: PlanarIncidence
   -> IntMap.IntMap ExactPoint
   -> IntSet.IntSet
+  -> [(PositiveExact, ExactRational)]
   -> UndirectedEdgeId
-  -> Either ValuationError (ExactRational, ExactRational)
-cellEdgeLengthContribution incidence points selectedFaces edge = do
-  let (fromVertex, toVertex) = incidenceUndirectedEndpoints incidence edge
-      (forward, backward) = directedPair edge
-      selected face = IntSet.member (faceIdIndex face) selectedFaces
-      coefficient = case (selected (incidenceIncidentFace incidence forward), selected (incidenceIncidentFace incidence backward)) of
-        (False, False) -> 1
-        (True, True) -> 0
-        _ -> oneHalf
-  from <- cellPoint points fromVertex
-  to <- cellPoint points toVertex
-  pure (coefficient, segmentSquaredLength from to)
+  -> Either ValuationError [(PositiveExact, ExactRational)]
+cellEdgeLengthContribution incidence points selectedFaces rest edge =
+  case (selected (incidenceIncidentFace incidence forward), selected (incidenceIncidentFace incidence backward)) of
+    (True, True) -> Right rest
+    (False, False) -> prepend positiveOne
+    _ -> prepend positiveHalf
+ where
+  (fromVertex, toVertex) = incidenceUndirectedEndpoints incidence edge
+  (forward, backward) = directedPair edge
+  selected face = IntSet.member (faceIdIndex face) selectedFaces
+  prepend coefficient = do
+    from <- cellPoint points fromVertex
+    to <- cellPoint points toVertex
+    pure ((coefficient, segmentSquaredLength from to) : rest)
 
 cellPoint
   :: IntMap.IntMap ExactPoint
@@ -492,232 +484,6 @@ segmentSquaredLength from to =
       deltaX = toX - fromX
       deltaY = toY - fromY
    in deltaX * deltaX + deltaY * deltaY
-
-normalizeLengthContributions
-  :: Foldable collection
-  => (value -> (ExactRational, ExactRational))
-  -> collection value
-  -> ExactLengthExpression
-normalizeLengthContributions contribution contributions =
-  ExactLengthExpression
-    [ ExactLengthTerm coefficient radicand
-    | (radicand, coefficient) <- List.sortOn fst (concat (Map.elems classes))
-    , not (exactRationalIsZero coefficient)
-    ]
- where
-  coefficientsBySquare =
-    List.foldl' accumulateContribution Map.empty contributions
-  accumulateContribution coefficients value =
-    case contribution value of
-      (coefficient, square)
-        | exactRationalIsZero coefficient -> coefficients
-        | otherwise -> Map.insertWith (+) square coefficient coefficients
-  classes =
-    Map.foldlWithKey' accumulateRadical Map.empty coefficientsBySquare
-  accumulateRadical buckets square coefficient =
-    let reduced = reduceRadicand square
-     in if radicalRadicand reduced == 0
-          then buckets
-          else
-            Map.alter
-              ( Just
-                  . mergeRadical (coefficient * radicalScale reduced) (radicalRadicand reduced)
-                  . fromMaybe []
-              )
-              (radicalClassKey reduced)
-              buckets
-
-data ReducedRadical = ReducedRadical
-  { radicalScale :: !ExactRational
-  , radicalRadicand :: !Integer
-  , radicalClassKey :: !Word64
-  }
-
--- | Write √(n/d) as (1/d)·√(n·d), fold the even part of each trial prime's
--- multiplicity and a perfect-square cofactor into the scale, and key the
--- radicand by what those primes observe of its square class: the parity of
--- the multiplicity and the quadratic character of the prime-free part, both
--- invariant under multiplication by rational squares.
-reduceRadicand :: ExactRational -> ReducedRadical
-reduceRadicand square
-  | radicand <= 0 = ReducedRadical inverseDenominator radicand 0
-  | otherwise =
-      let (cofactor, reduced) = List.foldl' stripPrime (radicand, initial) radicalPrimes
-          root = integerSquareRoot cofactor
-       in if root * root == cofactor
-            then reduced {radicalScale = radicalScale reduced * fromInteger root}
-            else reduced {radicalRadicand = radicalRadicand reduced * cofactor}
- where
-  denominator = exactRationalDenominator square
-  radicand = exactRationalNumerator square * denominator
-  inverseDenominator = exactRationalFromNormalizedRatio (1 Ratio.% denominator)
-  initial = ReducedRadical inverseDenominator 1 0
-  stripPrime (remaining, reduced) (prime, residues) =
-    let (multiplicity, rest) = primeMultiplicity prime remaining
-        (halfPower, parity) = multiplicity `divMod` 2
-        character = squareClassCharacter prime residues rest
-     in ( rest
-        , ReducedRadical
-            { radicalScale = radicalScale reduced * fromInteger (prime ^ halfPower)
-            , radicalRadicand = radicalRadicand reduced * prime ^ parity
-            , radicalClassKey = radicalClassKey reduced * 8 + fromIntegral (parity * 4 + character)
-            }
-        )
-
-radicalPrimes :: [(Integer, IntSet.IntSet)]
-radicalPrimes =
-  [ (toInteger prime, IntSet.fromList [(x * x) `mod` prime | x <- [1 .. prime - 1]])
-  | prime <- [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61 :: Int]
-  ]
-
-primeMultiplicity :: Integer -> Integer -> (Int, Integer)
-primeMultiplicity prime = go 0
- where
-  go !count value =
-    case value `quotRem` prime of
-      (quotient, 0) -> go (count + 1) quotient
-      _ -> (count, value)
-
-squareClassCharacter :: Integer -> IntSet.IntSet -> Integer -> Int
-squareClassCharacter 2 _ rest = fromInteger ((rest `mod` 8) `div` 2)
-squareClassCharacter prime residues rest =
-  if IntSet.member (fromInteger (rest `mod` prime)) residues then 1 else 0
-
--- | Fold a term into its square class: the product of two radicands of one
--- class is a perfect square, whose root exposes the rational square relating
--- them, so both fold onto their common divisor with integer scales.
-mergeRadical
-  :: ExactRational
-  -> Integer
-  -> [(Integer, ExactRational)]
-  -> [(Integer, ExactRational)]
-mergeRadical coefficient radicand = go
- where
-  go [] = [(radicand, coefficient)]
-  go ((kernel, total) : rest)
-    | pairRoot * pairRoot == pairProduct =
-        let common = gcd pairRoot kernel
-            newScale = pairRoot `div` common
-            oldScale = kernel `div` common
-         in ( kernel `div` (oldScale * oldScale)
-            , total * fromInteger oldScale + coefficient * fromInteger newScale
-            )
-              : rest
-    | otherwise = (kernel, total) : go rest
-   where
-    pairProduct = radicand * kernel
-    pairRoot = integerSquareRoot pairProduct
-
-scaleLengthExpression
-  :: Integer
-  -> ExactLengthExpression
-  -> ExactLengthExpression
-scaleLengthExpression scalar (ExactLengthExpression terms) =
-  let exactScalar = fromInteger scalar
-   in ExactLengthExpression
-        [ term
-            { lengthCoefficient =
-                exactScalar * lengthCoefficient term
-            }
-        | term <- terms
-        ]
-
-measureLength
-  :: ExactLengthExpression
-  -> Either ValuationError ExactLengthMeasurement
-measureLength expression@(ExactLengthExpression terms) = do
-  (lower, upper) <-
-    foldlM
-      addTermBounds
-      (0, 0)
-      terms
-  pure
-    ExactLengthMeasurement
-      { exactLengthExpression = expression
-      , exactLengthBounds =
-          CertifiedInterval
-            { intervalLower = directedLowerDouble lower
-            , intervalUpper = directedUpperDouble upper
-            }
-      }
- where
-  addTermBounds (lowerTotal, upperTotal) term = do
-    (lowerRoot, upperRoot) <- exactSquareRootBounds (fromInteger (lengthRadicand term))
-    let coefficient = lengthCoefficient term
-    pure
-      ( lowerTotal + coefficient * lowerRoot
-      , upperTotal + coefficient * upperRoot
-      )
-
-exactSquareRootBounds
-  :: ExactRational
-  -> Either ValuationError (ExactRational, ExactRational)
-exactSquareRootBounds value =
-  case exactSignum value of
-    LT -> Left (ValuationNegativeSquaredLength value)
-    _ ->
-      let numerator = exactRationalNumerator value
-          denominator = exactRationalDenominator value
-          scale = 1 `shiftL` radicalPrecisionBits
-          scaledNumerator = numerator * scale * scale
-          root = integerSquareRoot (scaledNumerator `div` denominator)
-          exact = root * root * denominator == scaledNumerator
-          dyadicPower = negate radicalPrecisionBits
-       in Right
-            ( exactRationalFromDyadic root dyadicPower
-            , exactRationalFromDyadic (if exact then root else root + 1) dyadicPower
-            )
-
-radicalPrecisionBits :: Int
-radicalPrecisionBits = 128
-
-integerSquareRoot :: Integer -> Integer
-integerSquareRoot value
-  | value < 2 = value
-  | otherwise = descend initial
- where
-  initial = 1 `shiftL` ((integerBitLength value + 1) `div` 2)
-  descend estimate =
-    let refined = (estimate + value `div` estimate) `div` 2
-     in if refined >= estimate then estimate else descend refined
-
-directedLowerDouble :: ExactRational -> Double
-directedLowerDouble value =
-  let candidate = rationalToDouble value
-   in if isInfinite candidate
-        then maximumFiniteDouble
-        else
-          if exactRationalFromFiniteDouble candidate <= value
-            then candidate
-            else previousPositiveDouble candidate
-
-directedUpperDouble :: ExactRational -> Double
-directedUpperDouble value =
-  let candidate = rationalToDouble value
-   in if isInfinite candidate
-        || exactRationalFromFiniteDouble candidate >= value
-        then candidate
-        else nextPositiveDouble candidate
-
-rationalToDouble :: ExactRational -> Double
-rationalToDouble value =
-  fromRational
-    ( exactRationalNumerator value
-        Ratio.% exactRationalDenominator value
-    )
-
-previousPositiveDouble :: Double -> Double
-previousPositiveDouble value
-  | value <= 0 = 0
-  | otherwise = castWord64ToDouble (castDoubleToWord64 value - 1)
-
-nextPositiveDouble :: Double -> Double
-nextPositiveDouble value
-  | value == 0 = castWord64ToDouble 1
-  | otherwise = castWord64ToDouble (castDoubleToWord64 value + 1)
-
-maximumFiniteDouble :: Double
-maximumFiniteDouble = castWord64ToDouble 0x7fefffffffffffff
 
 data ComponentBoundaryData = ComponentBoundaryData
   { componentBoundaryEuler :: !Int
@@ -892,6 +658,9 @@ loopPoints (ExactLoop points) = points
 
 oneHalf :: ExactRational
 oneHalf = exactRationalFromDyadic 1 (-1)
+
+positiveHalf :: PositiveExact
+positiveHalf = ratioPositive positiveOne positiveTwo
 
 oneSixth :: ExactRational
 oneSixth = exactRationalFromNormalizedRatio (1 Ratio.% 6)

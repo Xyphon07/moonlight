@@ -32,11 +32,11 @@ import Data.Sequence (Seq)
 import Moonlight.Planar.Affine (Affine2, transformPoint)
 import Moonlight.Planar.Curve
   ( CurveStep, OpenTrail, ClosedTrail, Located, location, locatedValue
-  , trailSteps, closedTrailSteps, curveStepEnd, stepControlPoints, splitStepHalf )
+  , trailSteps, closedTrailSteps, curveStepEnd, stepControlPoints, splitStep )
 import Moonlight.Planar.Exact
   ( ExactPoint, ExactVector (..), ExactRational
   , PositiveExact, positiveExactValue, exactHalf, divideByPositive, positiveSumSquares
-  , exactVectorFromPoints, translateExactPoint )
+  , exactVectorFromPoints, translateExactPoint, unitHalf )
 
 data LoweringPolicy = LoweringPolicy !PositiveExact !Affine2 !Int !Int
 
@@ -145,7 +145,7 @@ descend policy@(LoweringPolicy tolerance metric _ _) index depth remaining from 
         else if depth == 0
           then Left (SubdivisionDepthExhausted index t0 t1 bound)
           else do
-            let (left, right) = splitStepHalf step
+            let (left, right) = splitStep unitHalf step
                 middle = (t0 + t1) * exactHalf
                 splitPoint = translateExactPoint from (curveStepEnd left)
             (afterLeft, leftSpans) <- descend policy index (depth - 1) remaining from t0 middle left

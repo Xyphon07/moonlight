@@ -6,7 +6,27 @@ import Data.Ratio ((%), numerator, denominator)
 import Moonlight.Planar.Exact (ExactPoint, exactPoint, exactRationalNumerator, exactRationalDenominator)
 import Moonlight.Planar.Internal.ExactRational
   ( ExactRational
+  , PositiveExact
   , exactRational
+  , positiveOne
+  , positiveTwo
+  )
+import Moonlight.Planar.Internal.Length
+  ( ExactLengthExpression
+  , LengthEnclosure
+  , LengthError (..)
+  , RadicalPrecision
+  , RadicalPrecisionError (..)
+  , certifiedInterval
+  , expressionEnclosure
+  , lengthEnclosureLower
+  , lengthEnclosureUpper
+  , lengthEnclosureWidth
+  , normalizeLengthContributions
+  , publicationPrecision
+  , radicalPrecision
+  , radicalPrecisionBits
+  , squareRootEnclosure
   )
 import Moonlight.Planar.Overlay
   ( overlayClosedIntersection
@@ -66,6 +86,7 @@ tests = do
   testDimensionalCellFixtures
   testMetricInvariance
   testRadicalNormalForm
+  testLengthEnclosures
   putStrLn "valuation: ok"
 
 testExactPlanarMoments :: IO ()
@@ -448,3 +469,95 @@ testOrientedMomentRationalOracle = do
       (orientedBoundaryMoments prefix <> orientedBoundaryMoments suffix)
     assertEqual (label <> " empty boundary identity") actual
       (orientedBoundaryMoments [] <> actual)
+
+-- | The shared length owner at admitted precisions. Containment is checked
+-- by exact squaring, not against a floating square root.
+testLengthEnclosures :: IO ()
+testLengthEnclosures = do
+  assertEqual "zero precision refused" (Left (NonPositiveRadicalPrecision 0)) (radicalPrecision 0)
+  assertEqual "negative precision refused"
+    (Left (NonPositiveRadicalPrecision (-3))) (radicalPrecision (-3))
+  -- The doubled shift count stays representable: the boundary is admitted,
+  -- one past it refused. Neither is used to take a root.
+  assertEqual "largest representable precision admitted"
+    (Right (maxBound `quot` 2)) (radicalPrecisionBits <$> radicalPrecision (maxBound `quot` 2))
+  assertEqual "unrepresentable precision refused"
+    (Left (UnrepresentableRadicalPrecision (maxBound `quot` 2 + 1)))
+    (radicalPrecisionBits <$> radicalPrecision (maxBound `quot` 2 + 1))
+  precisions <- traverse (requireRight "radical precision" . radicalPrecision) [1, 16, 64, 128, 256]
+  oneThird <- exactValue 1 3
+  nineQuarters <- exactValue 9 4
+  threeHalves <- exactValue 3 2
+  tiny <- exactValue 1 (2 ^ (80 :: Int))
+  let squares = [0, 1, 2, 3, 4, 327697, 10 ^ (40 :: Int) + 1, oneThird, nineQuarters, tiny]
+  traverse_ (checkSquare precisions) squares
+  traverse_ (\precision -> do
+    zeroRoot <- requireRight "zero root" (squareRootEnclosure precision 0)
+    assertEqual "zero has a zero-width root" (0, 0) (endpoints zeroRoot)
+    exactRoot <- requireRight "exact dyadic root" (squareRootEnclosure precision nineQuarters)
+    assertEqual "an exact dyadic square has a zero-width root" (threeHalves, threeHalves) (endpoints exactRoot)
+    empty <- requireRight "empty expression" (expressionEnclosure precision (lengthExpression []))
+    assertEqual "the empty expression encloses zero exactly" (0, 0) (endpoints empty)
+    assertEqual "negative square refused" (Left (LengthNegativeSquare (-1))) (squareRootEnclosure precision (-1))) precisions
+
+  -- Positive coefficients scale each class's root enclosure; the normalizer
+  -- folds sqrt 8 onto 2 sqrt 2 before any root is bounded.
+  traverse_ (\precision -> do
+    rootTwo <- requireRight "root two" (squareRootEnclosure precision 2)
+    rootThree <- requireRight "root three" (squareRootEnclosure precision 3)
+    let expected =
+          ( 2 * lengthEnclosureLower rootTwo + lengthEnclosureLower rootThree
+          , 2 * lengthEnclosureUpper rootTwo + lengthEnclosureUpper rootThree )
+    scaled <- requireRight "scaled sum"
+      (expressionEnclosure precision (lengthExpression [(positiveTwo, 2), (positiveOne, 3)]))
+    merged <- requireRight "merged sum"
+      (expressionEnclosure precision (lengthExpression [(positiveOne, 8), (positiveOne, 3)]))
+    assertEqual "coefficients scale their root enclosures" expected (endpoints scaled)
+    assertEqual "square classes merge before rounding" expected (endpoints merged)) precisions
+
+  -- The irrational triangle's perimeter 2 + sqrt 2 at growing precision.
+  triangle <- polygonRegion [(0, 0), (1, 0), (0, 1)]
+  perimeter <- requireRight "irrational triangle perimeter" (regionPerimeter triangle)
+  enclosures <- traverse
+    (\precision -> requireRight "perimeter enclosure"
+      (expressionEnclosure precision (exactLengthExpression perimeter))) precisions
+  traverse_ (\(coarse, fine) -> do
+    assertEqual "finer enclosures nest" True (nested fine coarse)
+    assertEqual "finer enclosures are no wider" True
+      (lengthEnclosureWidth fine <= lengthEnclosureWidth coarse)) (zip enclosures (drop 1 enclosures))
+  assertEqual "enclosures contain 2 + sqrt 2" True
+    (all (\enclosure -> containsRoot 2 (lengthEnclosureLower enclosure - 2)
+      (lengthEnclosureUpper enclosure - 2)) enclosures)
+  published <- requireRight "publication enclosure"
+    (expressionEnclosure publicationPrecision (exactLengthExpression perimeter))
+  assertEqual "valuation publishes the owner's 128-bit enclosure"
+    (certifiedInterval published) (exactLengthBounds perimeter)
+  assertEqual "binary64 publication is outward" True (outward published)
+  traverse_ (\enclosure -> assertEqual "binary64 publication is outward" True (outward enclosure)) enclosures
+ where
+  endpoints enclosure = (lengthEnclosureLower enclosure, lengthEnclosureUpper enclosure)
+  lengthExpression :: [(PositiveExact, ExactRational)] -> ExactLengthExpression
+  lengthExpression = normalizeLengthContributions id
+  checkSquare :: [RadicalPrecision] -> ExactRational -> IO ()
+  checkSquare precisions square = do
+    roots <- traverse (\precision -> requireRight "square root" (squareRootEnclosure precision square)) precisions
+    assertEqual "roots enclose by exact squaring" True
+      (all (\root -> containsRoot square (lengthEnclosureLower root) (lengthEnclosureUpper root)) roots)
+    assertEqual "root width is at most one unit in the last place" True
+      (and (zipWith (\bits root -> lengthEnclosureWidth root * 2 ^ bits <= 1) [1 :: Int, 16, 64, 128, 256] roots))
+    traverse_ (\(coarse, fine) -> assertEqual "root enclosures nest" True (nested fine coarse))
+      (zip roots (drop 1 roots))
+  nested :: LengthEnclosure -> LengthEnclosure -> Bool
+  nested inner outer =
+    lengthEnclosureLower outer <= lengthEnclosureLower inner
+      && lengthEnclosureUpper inner <= lengthEnclosureUpper outer
+  containsRoot :: ExactRational -> ExactRational -> ExactRational -> Bool
+  containsRoot square lower upper = lower <= upper && (lower <= 0 || lower * lower <= square)
+    && upper >= 0 && square <= upper * upper
+  outward :: LengthEnclosure -> Bool
+  outward enclosure =
+    let interval = certifiedInterval enclosure
+     in toRational (intervalLower interval) <= rational (lengthEnclosureLower enclosure)
+          && rational (lengthEnclosureUpper enclosure) <= toRational (intervalUpper interval)
+  rational :: ExactRational -> Rational
+  rational value = exactRationalNumerator value % exactRationalDenominator value
