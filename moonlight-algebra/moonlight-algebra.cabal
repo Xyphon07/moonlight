@@ -1,6 +1,6 @@
 cabal-version:       3.4
 name:                moonlight-algebra
-version:             0.1.1.0
+version:             0.1.1.1
 homepage:            https://github.com/PaleRoses/moonlight
 bug-reports:         https://github.com/PaleRoses/moonlight/issues
 synopsis:            Algebraic type class tower for Pale Meridian.
@@ -26,7 +26,7 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/PaleRoses/moonlight.git
-  tag:      moonlight-algebra-0.1.1.0
+  tag:      moonlight-algebra-0.1.1.1
   subdir:   moonlight-algebra
 
 common shared-properties

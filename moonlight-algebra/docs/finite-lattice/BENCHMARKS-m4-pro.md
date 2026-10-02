@@ -25,7 +25,7 @@ topology; stale timings are never pasted forward.
 ## Required commands
 
 ```sh
-cd /Users/bluerose/Developer/pale-meridian/compiler
+cd compiler # From the repository root.
 cabal bench moonlight-algebra:bench:moonlight-algebra-finite-lattice-bench -j1 --benchmark-options='--timeout=1s --csv=/tmp/moonlight-algebra-finite-lattice-bench-m4-pro-all.csv'
 ```
 

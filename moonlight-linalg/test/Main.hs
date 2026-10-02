@@ -8,7 +8,6 @@ import qualified DenseFlatSpec as DenseFlatSpec
 import qualified DenseRowsSpec as DenseRowsSpec
 import qualified KrylovSpec as KrylovSpec
 import qualified DomainSpec as DomainSpec
-import qualified LinearFeasibilitySpec as LinearFeasibilitySpec
 import qualified DynamicSpec as DynamicSpec
 import qualified FieldSpec as FieldSpec
 import qualified ExteriorSpec as ExteriorSpec
@@ -32,7 +31,6 @@ main =
           DenseRowsSpec.tests,
           FieldSpec.tests,
           DomainSpec.tests,
-          LinearFeasibilitySpec.tests,
           DynamicSpec.tests,
           ExteriorSpec.tests,
           GF2Spec.tests,

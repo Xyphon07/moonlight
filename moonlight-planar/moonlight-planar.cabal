@@ -1,6 +1,6 @@
 cabal-version:       3.4
 name:                moonlight-planar
-version:             1.2.0.0
+version:             1.2.0.1
 synopsis:            Native hex regions, Delaunay meshes, and exact planar algebra.
 description:         Native packed hexagonal cell regions and Delaunay and
                      constrained Delaunay triangulation as lawful
@@ -124,7 +124,7 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/PaleRoses/moonlight.git
-  tag:      moonlight-planar-1.2.0.0
+  tag:      moonlight-planar-1.2.0.1
   subdir:   moonlight-planar
 
 flag warnings-as-errors

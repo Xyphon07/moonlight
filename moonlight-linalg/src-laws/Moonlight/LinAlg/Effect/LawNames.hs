@@ -41,10 +41,6 @@ data LawName
   | SmithDiagonalOnlyAgreesWithFull
   | BareissRankAgreesWithFieldRank
   | BareissDeterminantAgreesWithExterior
-  | ExactFeasibilityPrimalCertificateValid
-  | ExactFeasibilityFarkasCertificateValid
-  | ExactOptimizationOptimalCertificateValid
-  | ExactOptimizationUnboundedCertificateValid
   | COOCSRRoundTrip
   | COOCSCRoundTrip
   | CSRCSCTransposeAgreement
@@ -123,10 +119,6 @@ lawName =
       ("SmithDiagonalOnlyAgreesWithFull", "linalg_domain_smith_diagonal_only_agrees_with_full"),
       ("BareissRankAgreesWithFieldRank", "linalg_domain_bareiss_rank_agrees_with_field_rank"),
       ("BareissDeterminantAgreesWithExterior", "linalg_domain_bareiss_determinant_agrees_with_exterior"),
-      ("ExactFeasibilityPrimalCertificateValid", "linalg_domain_exact_feasibility_primal_certificate_valid"),
-      ("ExactFeasibilityFarkasCertificateValid", "linalg_domain_exact_feasibility_farkas_certificate_valid"),
-      ("ExactOptimizationOptimalCertificateValid", "linalg_domain_exact_optimization_optimal_certificate_valid"),
-      ("ExactOptimizationUnboundedCertificateValid", "linalg_domain_exact_optimization_unbounded_certificate_valid"),
       ("COOCSRRoundTrip", "linalg_sparse_coo_csr_round_trip"),
       ("COOCSCRoundTrip", "linalg_sparse_coo_csc_round_trip"),
       ("CSRCSCTransposeAgreement", "linalg_sparse_csr_csc_transpose_agreement"),

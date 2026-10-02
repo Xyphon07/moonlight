@@ -140,6 +140,5 @@ responsibility:
 | `.Identifier` | the single identifier/label interpretation shared by all projections |
 | `.Picture` | compact pure SVG projection of the admitted exhibit |
 
-The split is semantic rather than ceremonial: no wrapper modules, no duplicate
-projection types, no hand-maintained duplicate mesh coordinates, and no mutable
-orchestration wearing an expensive hat.
+Each module implements a distinct projection, sharing the model types,
+identifiers, and mesh coordinates.

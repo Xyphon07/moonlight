@@ -19,7 +19,7 @@ each, with the dependency DAG enforced by cabal and guarded by
 | `eigen` | `Internal.Eigen.*` | carrier |
 | `geometry` | `Pure.Geometry.*` | carrier |
 | `dense` | `Pure.Dense.*` (rest), `Internal.Backend.*`, `Internal.Dense.*` | carrier, eigen |
-| `domain` | `Pure.Domain.{Bareiss, LinearFeasibility, PolyhedralCone, Smith, Smith.Multimodular, Smith.Witnessed}` | carrier, dense |
+| `domain` | `Pure.Domain.{Bareiss, Smith, Smith.Multimodular, Smith.Witnessed}` | carrier, dense |
 | `sparse` | `Pure.Sparse.*` | carrier, structured |
 | `statics` | `Pure.Statics.*` | carrier, dense, geometry |
 | `spectral` | `Pure.Operator(+.Internal)`, `Pure.Krylov.*`, `Pure.Spectral.*` | carrier, eigen, sparse, structured |
@@ -222,7 +222,7 @@ diagonal dominance guarantees the dispatch engages), the witnessed
 reconstruction and unimodularity assertions, the generated Smith laws, and the
 external referent agreement gate.
 
-Sealed 2026-07-06 by agent.
+Recorded 2026-07-06.
 
 ## Deferred with cause
 

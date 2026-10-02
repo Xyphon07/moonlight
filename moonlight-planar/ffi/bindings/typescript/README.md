@@ -7,7 +7,7 @@ regions, and polygonal morphology. The package owns JavaScript resource
 lifetime and error terms; the generated raw declarations descend from the same
 Haskell contract as the C header, Python declarations, and Rust declarations.
 
-This source package does not pretend to contain a native binary. Supply an
+This source package does not include a native binary. Supply an
 explicit path to the ABI-version-2 shared library:
 
 ```typescript
@@ -40,5 +40,5 @@ if (region.ok) {
 Every operation that can be refused returns `Result<Value, MoonlightFailure>`.
 No raw Koffi handle, constructor capability, or numeric status code crosses the
 package entrypoint. Owned meshes, regions, and structuring elements implement
-both `dispose()` and `Symbol.dispose`; morphology therefore keeps the honest
+both `dispose()` and `Symbol.dispose`; morphology therefore keeps the
 domain method `region.close(element)`.

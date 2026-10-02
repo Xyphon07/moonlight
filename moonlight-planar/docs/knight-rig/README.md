@@ -16,14 +16,14 @@ From the repository root (replace the output directory if desired):
 ```sh
 scripts/safe-cabal.sh run moonlight-planar:exe:moonlight-planar-knight-rig \
   --project-file=cabal.project.planar-dev \
-  --builddir=/Volumes/Sirius/work/pm-artifacts/planar-collapse-20260907/build \
-  --offline -j6 -- /Volumes/Sirius/work/pm-artifacts/knight-rig-20260907/knight.obj
+  --builddir=dist-newstyle-planar-dev \
+  --offline -j6 -- "$PWD/.artifacts/knight-rig/knight.obj"
 blender --background --factory-startup --python-exit-code 1 \
   --python compiler/foundation/moonlight-planar/docs/knight-rig/rig.py -- \
-  /Volumes/Sirius/work/pm-artifacts/knight-rig-20260907/knight.obj \
-  /Volumes/Sirius/work/pm-artifacts/knight-rig-20260907
+  "$PWD/.artifacts/knight-rig/knight.obj" \
+  "$PWD/.artifacts/knight-rig"
 python3 compiler/foundation/moonlight-planar/docs/knight-rig/package.py \
-  /Volumes/Sirius/work/pm-artifacts/knight-rig-20260907
+  "$PWD/.artifacts/knight-rig"
 ```
 
 The interpreter targets Blender 5.1.1; preview packaging uses Pillow with WebP

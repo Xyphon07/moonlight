@@ -185,7 +185,7 @@ or network fetch is concealed in benchmark startup.
 
 ## Harness difference
 
-Upstream uses Rust Criterion. This port uses Haskell `tasty-bench`, so it does
-not pretend Criterion's warm-up seconds or sample-count knobs map one-to-one to
-another calibrator. The inputs, sizes, implementation calls, and timed/setup
-boundary are preserved; calibration and reporting are honestly Haskell.
+Upstream uses Rust Criterion. This port uses Haskell `tasty-bench`, whose
+calibration settings do not map one-to-one to Criterion's warm-up duration or
+sample count. The inputs, sizes, implementation calls, and timed/setup boundary
+are preserved; calibration and reporting use `tasty-bench`.

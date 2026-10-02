@@ -319,7 +319,7 @@ Author shape intent in ordinary Haskell records and pure functions. Keep the
 curves as the source of truth; neither SVG strings nor triangulation vertices
 are the editing interface.
 
-This is a strong foundation, not a finished illustration language. The
+The illustration API is incomplete. The
 [curve-authoring status](docs/curve-authoring-status.md) records what the
 measured and certified layer provides, its capability boundary, and the missing
 offset, intersection, relational, repetition, and diagnostic algebras required
@@ -412,12 +412,11 @@ foliage frames = foldMap (\frame -> place frame motif) frames
   motif = leaf 8 positiveTwo
 ```
 
-For an agent, the workflow is: name parts and attachment frames; choose a
-profile or interpolating contour; express its widths and landmarks as equations
-of a small control record; reuse the value with `place` and `foldMap`; paint in
-explicit back-to-front order. Inspect the fixed-camera render and diagnostics
-after editing a meaningful control. Do not replace the profile with a traced
-list of cubic handles merely to match one rendered sample.
+To build an illustration, name its parts and attachment frames, choose a
+profile or interpolating contour, and express its widths and landmarks as
+functions of a control record. Reuse the value with `place` and `foldMap`,
+painting in explicit back-to-front order. A fixed camera and diagnostic render
+help compare the effect of each control change.
 
 `Moonlight.Planar.Illustration.Svg` publishes with
 `renderSvg :: (part -> String) -> SvgOptions -> Picture part -> Either SvgError String`.
@@ -503,10 +502,8 @@ is an illustration-scale composition of a swept metal profile, attached hilt,
 recessed energy channel, repeated typed inscriptions and a single affine pose.
 `defaultSpaceSwordControls` and `overchargedSpaceSwordControls` change the blade
 system without perturbing the crossguard, grip, counterweight or star field.
-It is source-authored mathematics, not traced output wearing a lab coat.
-Both illustration authors use the reusable authoring operations rather than
-constructing Bezier control handles. Low-level curve construction remains
-available for algorithms that actually need it.
+These examples use the reusable authoring operations rather than constructing
+Bezier control handles directly. Low-level curve construction is also available.
 
 From the repository root, render the fixed-camera baseline, combined edited
 variant, and diagnostics using the isolated build directory:
@@ -515,7 +512,7 @@ variant, and diagnostics using the isolated build directory:
 scripts/safe-cabal.sh run moonlight-planar:exe:moonlight-planar-illustration-study \
   --project-file=cabal.project.planar-dev \
   --builddir=dist-newstyle-planar-illustration --enable-benchmarks -j1 -- \
-  /Volumes/Sirius/work/pm-artifacts/planar-illustration-20260911/attachments-layout-20260912/candidate
+  "$PWD/.artifacts/planar-illustration"
 ```
 
 The output directory must be absolute. Knight outputs are `knight-crescent.svg`,

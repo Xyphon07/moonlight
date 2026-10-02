@@ -28,7 +28,7 @@ scripts/safe-cabal.sh build moonlight-planar:lib:dcel \
   --project-file=cabal.project.planar-dev --builddir=dist-newstyle-planar-dev --offline -j6
 scripts/safe-cabal.sh run moonlight-planar:exe:moonlight-planar-moonblade \
   --project-file=cabal.project.planar-dev --builddir=dist-newstyle-planar-dev --offline -j6 -- \
-  /Users/bluerose/Developer/pale-meridian/compiler/foundation/moonlight-planar/docs/moonblade/moonblade.svg
+  "$PWD/compiler/foundation/moonlight-planar/docs/moonblade/moonblade.svg"
 ```
 
 Edit the source and regenerate; do not hand-edit the derived SVG.

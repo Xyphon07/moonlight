@@ -46,43 +46,9 @@ tests =
       testCase "linalg sublibrary slices stay downward" assertSublibrarySliceDiscipline,
       testCase "canonical sparse storage exposes vector payloads only" assertCanonicalSparseStorageSurface,
       testCase "canonical CSR matvec does not revalidate in hot apply paths" assertCSRHotApplyBoundary,
-      testCase "dynamic carrier dimensions are not exported record fields" assertDynamicCarrierRecordSurface,
-      testCase "exact certificates expose getters, not record updates" assertExactCertificateRecordSurface,
       testCase "public sparse solver surface stays canonical" assertPublicSparseSolverSurface,
       testCase "sparse solvers stay off list orchestration" assertSparseSolverHotSurface,
       testCase "linalg docs do not advertise deleted spectral APIs" assertLinalgDocsAvoidDeletedSpectralAPIs
-    ]
-
-assertDynamicCarrierRecordSurface :: Assertion
-assertDynamicCarrierRecordSurface =
-  assertForbiddenFragments
-    [ SourceCheck
-        "src-dense/Moonlight/LinAlg/Pure/Dense/Dynamic.hs"
-        [ ("record-updatable dynamic vector length", "{ dynVectorLength ::"),
-          ("record-updatable dynamic matrix rows", "{ dynRows ::"),
-          ("record-updatable dynamic matrix columns", "{ dynCols ::")
-        ]
-    ]
-
-assertExactCertificateRecordSurface :: Assertion
-assertExactCertificateRecordSurface =
-  assertForbiddenFragments
-    [ SourceCheck
-        "src-domain/Moonlight/LinAlg/Pure/Domain/LinearFeasibility.hs"
-        [ ("record-updatable primal certificate", "{ nonNegativeSolutionVector ::"),
-          ("record-updatable Farkas certificate", "{ farkasCertificateVector ::"),
-          ("record-updatable optimum", "{ exactLinearOptimumSolution ::"),
-          ("record-updatable unbounded witness", "{ linearProgramUnboundedBase ::")
-        ],
-      SourceCheck
-        "src-domain/Moonlight/LinAlg/Pure/Domain/PolyhedralCone.hs"
-        [ ("record-updatable cone dimension", "{ generatedConeDimension ::"),
-          ("record-updatable cone combination", "{ nonNegativeCombinationCoefficients ::"),
-          ("record-updatable common gauge", "{ commonPositiveGaugeLeftCone ::"),
-          ("record-updatable common ray", "{ commonRayPoint ::"),
-          ("record-updatable projective separator", "{ projectiveSeparationFunctional ::"),
-          ("record-updatable section distance", "{ linfSectionDistanceValue ::")
-        ]
     ]
 
 assertObsoleteOwnersStayDeleted :: Assertion

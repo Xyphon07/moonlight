@@ -28,7 +28,7 @@ benchmark tooling.
 | `Moonlight.LinAlg.Spectral` | Eigenvalue/eigenpair requests and contiguous result views, dispatched by demand and operator structure above Krylov. |
 | `Moonlight.LinAlg.Krylov` | Public Arnoldi/Lanczos decomposition, projected tridiagonal/block-tridiagonal carriers, and block Lanczos surface. |
 | `Moonlight.LinAlg.Native` | Effectful native LAPACK backend boundary. On macOS it links Accelerate; elsewhere it expects BLAS/LAPACK libraries. |
-| `Moonlight.LinAlg.Domain` | Exact feasibility and optimization certificates, common-gauge generated-cone intersection and L-infinity section distance, Bareiss elimination, and Smith normal form. |
+| `Moonlight.LinAlg.Domain` | Domain-level algebraic operations, including Smith normal form. |
 | `Moonlight.LinAlg.Geometry` | `Vec2`, `Vec3`, AABB/AABB2, frames, affine transforms, and compact symmetric 2D/3D carriers. |
 | `Moonlight.LinAlg.Statics` | Statics types, assembly, equilibrium compilation, and support checking. |
 
@@ -78,7 +78,7 @@ The default native LAPACK group keeps small DSYEV rows and a small DSTEMR
 selected-tridiagonal row. The 10k DSTEMR path-Laplacian row is opt-in because it
 is a native-boundary stress case for deeper runs.
 
-For a fast local sanity sweep, skip the default calibrated sampling ceremony:
+For a quick smoke test without calibrated sampling:
 
 ```sh
 cabal bench moonlight-linalg:moonlight-linalg-bench -j1 --benchmark-options='--once'

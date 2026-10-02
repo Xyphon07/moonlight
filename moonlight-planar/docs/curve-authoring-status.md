@@ -1,10 +1,8 @@
 # Curve authoring: present boundary and missing algebra
 
-Moonlight Planar has a credible curve core and, since 1.2.0.0, a measured and
-certified layer over it. It does **not** yet have a mature
-illustration-authoring system. The distinction matters: eliminating hand-traced
-Bezier handles and measuring curves honestly is a useful foundation, not
-evidence that an agent can reliably author a complete illustration.
+Moonlight Planar provides exact curves and, since 1.2.0.0, certified measurement
+operations. It does **not** yet provide a complete illustration-authoring API.
+The supported operations and remaining limitations are listed below.
 
 ## What exists now
 
@@ -84,7 +82,7 @@ nor an equality solver.
 - Exact curve Booleans need an algebraic-number representation for
   intersection points. That is a separate design decision, not a small
   extension of `ExactPoint`.
-- A relation solver, if one is ever earned, must distinguish inconsistent,
+- A relation solver would need to distinguish inconsistent,
   underdetermined, ambiguous, and budget-exhausted outcomes, and satisfy
   declared residual bounds.
 
@@ -101,7 +99,7 @@ algebra in this order:
 3. curve noding and arrangement receipts over an explicit algebraic
    representation, connecting curve topology to the existing exact region
    owner beyond the simple-region domain;
-4. offset and stroke-outline construction with honest error and topology
+4. offset and stroke-outline construction with explicit error and topology
    witnesses;
 5. a pure relational authoring language whose solver either returns a checked
    construction or a typed refusal.
@@ -115,7 +113,7 @@ evaluator, cached shadow geometry, or SVG-as-source editing model.
 Curve authoring is not illustration-ready merely because an example can be
 rendered. A credible readiness claim requires all of the following:
 
-- an agent can place and repeat motifs by geometric relations rather than copied
+- authors can place and repeat motifs by geometric relations rather than copied
   coordinates;
 - edits preserve declared attachment, continuity, spacing, and topology laws;
 - unavoidable approximations carry bounds and refuse exhausted budgets;

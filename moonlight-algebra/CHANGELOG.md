@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1.1 - 2026-10-01
+
+- Clarify README wording and use a portable path in the benchmark guide.
+- No library or API changes from 0.1.1.0.
+
 ## 0.1.1.0 - 2026-09-23
 
 - Extract the existing join-semilattice law and standard instances into the

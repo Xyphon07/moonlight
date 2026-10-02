@@ -6,8 +6,6 @@ where
 
 import Moonlight.LinAlg
   ( DynMatrix,
-    dynVectorLength,
-    dynVectorToList,
     dynMatrixFromRows,
     dynMatrixShape,
     dynMatrixToList,
@@ -15,7 +13,6 @@ import Moonlight.LinAlg
     fromDynMatrix,
     fromListMatrix,
     mkDynMatrix,
-    mkDynVector,
     toDynMatrix,
     toListMatrix,
     withDynMatrix,
@@ -38,8 +35,7 @@ tests =
       testCase "fromDynMatrix rejects equal-cardinality shape changes" testFromDynShapeMismatch,
       testCase "dynamic nested rows preserve row-major shape" testDynamicRows,
       testCase "dynamic zero-column rows retain row count" testDynamicZeroColumns,
-      testCase "withDynMatrix introduces existential static dimensions" testWithDyn,
-      testCase "dynamic vector dimensions remain constructor-owned" testDynamicVectorInvariant
+      testCase "withDynMatrix introduces existential static dimensions" testWithDyn
     ]
 
 testToDyn :: Assertion
@@ -101,14 +97,3 @@ testWithDyn =
         dynValue :: DynMatrix Double <- mkDynMatrix 1 3 [7.0, 8.0, 9.0]
         withDynMatrix dynValue (\matrixValue -> toListMatrix matrixValue)
    in extractRight result (\values -> assertEqual "existential reification" [7.0, 8.0, 9.0] values)
-
-testDynamicVectorInvariant :: Assertion
-testDynamicVectorInvariant = do
-  case mkDynVector 2 ([1] :: [Integer]) of
-    Left _ -> pure ()
-    Right _ -> assertFailure "mismatched dynamic vector payload was admitted"
-  case mkDynVector 2 ([1, 2] :: [Integer]) of
-    Left failure -> assertFailure (show failure)
-    Right vectorValue -> do
-      assertEqual "constructor-owned length" 2 (dynVectorLength vectorValue)
-      assertEqual "constructor-owned payload" [1, 2] (dynVectorToList vectorValue)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0.1 - 2026-10-01
+
+- Simplify README and guide wording; replace machine-specific example paths
+  with paths relative to the checkout.
+- No library or API changes from 1.2.0.0.
+
 This is release chronology, not current interface authority. The package
 [README](./README.md), Cabal manifest, and linked focused guides own the live
 surface.

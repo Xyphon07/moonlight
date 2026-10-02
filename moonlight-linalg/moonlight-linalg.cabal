@@ -1,6 +1,6 @@
 cabal-version:       3.0
 name:                moonlight-linalg
-version:             0.1.0.1
+version:             0.1.0.2
 homepage:            https://github.com/PaleRoses/moonlight
 bug-reports:         https://github.com/PaleRoses/moonlight/issues
 synopsis:            Dense tensor and algebraic matrix core for Pale Meridian.
@@ -149,8 +149,6 @@ library moonlight-linalg-domain
   hs-source-dirs: src-domain
   exposed-modules:
     Moonlight.LinAlg.Pure.Domain.Bareiss
-    Moonlight.LinAlg.Pure.Domain.LinearFeasibility
-    Moonlight.LinAlg.Pure.Domain.PolyhedralCone
     Moonlight.LinAlg.Pure.Domain.Smith
     Moonlight.LinAlg.Pure.Domain.Smith.Multimodular
     Moonlight.LinAlg.Pure.Domain.Smith.Witnessed
@@ -358,7 +356,6 @@ test-suite moonlight-linalg-test
     DenseFlatSpec
     DenseRowsSpec
     KrylovSpec
-    LinearFeasibilitySpec
     FieldSpec
     DomainSpec
     DynamicSpec
@@ -432,5 +429,5 @@ source-repository head
 source-repository this
   type:     git
   location: https://github.com/PaleRoses/moonlight.git
-  tag:      moonlight-linalg-0.1.0.1
+  tag:      moonlight-linalg-0.1.0.2
   subdir:   moonlight-linalg

@@ -3,8 +3,6 @@
 > Part of **Moonlight**, the sheaf-theoretic computation layer beneath
 > [Melusine](https://bluerose.blue) and Pale Meridian.
 
-The law-governed algebraic tower the rest of the cathedral stands on.
-
 `moonlight-algebra` is Moonlight's algebraic tier, building on
 [`moonlight-core`](../moonlight-core). The front door is the umbrella module
 `Moonlight.Algebra`, whose header carries the tower's shape and its relationship

@@ -2,17 +2,10 @@
 
 All notable changes to `moonlight-linalg` are documented here.
 
-## Unreleased
+## 0.1.0.2 - 2026-10-01
 
-- Added exact standard-form rational feasibility with independently verified
-  nonnegative witnesses or normalized Farkas certificates.
-- Added exact Phase-II optimization with independently verified primal/dual
-  optima or normalized improving directions for unbounded programs.
-- Added finitely generated cone membership and common-positive-gauge
-  nontrivial intersection as direct descents through that single solver, plus
-  exact L-infinity distance between the resulting normalized sections.
-- Closed record-update escape hatches in dynamic carriers and certified
-  results; exported observations are now ordinary getters over opaque values.
+- Simplify README and architecture-guide wording.
+- No library or API changes from 0.1.0.1.
 
 ## 0.1.0.1 - 2026-08-21
 

@@ -92,11 +92,7 @@ registeredLawSections =
         RegisteredLaw SmithWitnessesUnimodular Harness.smithWitnessesUnimodularLaw,
         RegisteredLaw SmithDiagonalOnlyAgreesWithFull Harness.smithDiagonalOnlyAgreesWithFullLaw,
         RegisteredLaw BareissRankAgreesWithFieldRank Harness.bareissRankAgreesWithFieldRankLaw,
-        RegisteredLaw BareissDeterminantAgreesWithExterior Harness.bareissDeterminantAgreesWithExteriorLaw,
-        RegisteredLaw ExactFeasibilityPrimalCertificateValid Harness.exactFeasibilityPrimalCertificateValidLaw,
-        RegisteredLaw ExactFeasibilityFarkasCertificateValid Harness.exactFeasibilityFarkasCertificateValidLaw,
-        RegisteredLaw ExactOptimizationOptimalCertificateValid Harness.exactOptimizationOptimalCertificateValidLaw,
-        RegisteredLaw ExactOptimizationUnboundedCertificateValid Harness.exactOptimizationUnboundedCertificateValidLaw
+        RegisteredLaw BareissDeterminantAgreesWithExterior Harness.bareissDeterminantAgreesWithExteriorLaw
       ],
     LawSection
       "sparse storage"

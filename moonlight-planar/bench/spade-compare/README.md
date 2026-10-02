@@ -32,8 +32,8 @@ records, measurements, or baseline gaps, and therefore requires a provenance
 note.
 
 Before building Rust or measuring anything, `check` also refuses a baseline
-whose lane keyspace or provenance is incomplete. A doomed comparison does not
-earn seven expensive rounds merely for dramatic effect.
+whose lane keyspace or provenance is incomplete, avoiding timing runs against
+an invalid baseline.
 
 ## Covered operations
 
@@ -42,10 +42,8 @@ the typed executable registry. A successfully refreshed `SCORECARD.md` adds the
 retained timing projection. This README deliberately does not keep a
 hand-written second lane table.
 
-The diagnostic lanes are deliberately allowed to be ugly. They measure known
-complexity cliffs and remain in the all-lane standings rather than being
-quietly removed from the denominator. A repaired workload graduates to parity;
-the lane remains, so the collapse cannot disappear with its old label.
+The diagnostic lanes measure known complexity cliffs and remain in the
+all-lane standings after a repair, preserving comparisons across revisions.
 
 ## Semantic descent
 

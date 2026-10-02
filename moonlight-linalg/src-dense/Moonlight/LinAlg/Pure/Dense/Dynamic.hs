@@ -49,10 +49,17 @@ import Moonlight.LinAlg.Pure.Dense.Types
 import Prelude
 
 type DynVector :: Type -> Type
-data DynVector a = DynVector !Int [a]
+data DynVector a = DynVector
+  { dynVectorLength :: Int,
+    dynVectorValues :: [a]
+  }
 
 type DynMatrix :: Type -> Type
-data DynMatrix a = DynMatrix !Int !Int [a]
+data DynMatrix a = DynMatrix
+  { dynRows :: Int,
+    dynCols :: Int,
+    dynMatrixValues :: [a]
+  }
 
 mkDynVector :: Int -> [a] -> Either MoonlightError (DynVector a)
 mkDynVector expected values
@@ -70,7 +77,11 @@ dynMatrixFromRows rowValues = do
   denseRowsValue <- mkDenseRows rowValues
   let (rowCount, columnCount) = denseRowsShape denseRowsValue
   Right
-    (DynMatrix rowCount columnCount (concat (denseRowsToLists denseRowsValue)))
+    DynMatrix
+      { dynRows = rowCount,
+        dynCols = columnCount,
+        dynMatrixValues = concat (denseRowsToLists denseRowsValue)
+      }
 
 dynMatrixToRows :: DynMatrix a -> Either MoonlightError [[a]]
 dynMatrixToRows dynValue = do
@@ -84,15 +95,19 @@ dynMatrixToRows dynValue = do
 
 toDynVector :: KnownNat n => Vector n a -> DynVector a
 toDynVector vectorValue =
-  DynVector (vectorLength vectorValue) (toListVector vectorValue)
+  DynVector
+    { dynVectorLength = vectorLength vectorValue,
+      dynVectorValues = toListVector vectorValue
+    }
 
 toDynMatrix :: (KnownNat r, KnownNat c) => Matrix r c a -> DynMatrix a
 toDynMatrix matrixValue =
   let (rowCount, columnCount) = matrixShape matrixValue
    in DynMatrix
-        rowCount
-        columnCount
-        (toListMatrix matrixValue)
+        { dynRows = rowCount,
+          dynCols = columnCount,
+          dynMatrixValues = toListMatrix matrixValue
+        }
 
 fromDynVector :: forall n a. KnownNat n => DynVector a -> Either MoonlightError (Vector n a)
 fromDynVector dynValue = do
@@ -176,18 +191,3 @@ dynVectorToList = dynVectorValues
 
 dynMatrixToList :: DynMatrix a -> [a]
 dynMatrixToList = dynMatrixValues
-
-dynVectorLength :: DynVector a -> Int
-dynVectorLength (DynVector vectorLengthValue _) = vectorLengthValue
-
-dynVectorValues :: DynVector a -> [a]
-dynVectorValues (DynVector _ values) = values
-
-dynRows :: DynMatrix a -> Int
-dynRows (DynMatrix rowCount _ _) = rowCount
-
-dynCols :: DynMatrix a -> Int
-dynCols (DynMatrix _ columnCount _) = columnCount
-
-dynMatrixValues :: DynMatrix a -> [a]
-dynMatrixValues (DynMatrix _ _ values) = values

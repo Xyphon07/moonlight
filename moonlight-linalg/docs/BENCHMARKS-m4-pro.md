@@ -196,7 +196,7 @@ The native LAPACK rows call `Moonlight.LinAlg.Native` with `EigenRequest` and co
 The once runner reports per-row allocation when RTS stats are enabled. Each row forces a major GC before and after the measured action, records the allocation delta, reports live bytes after the post-row major GC, and reports the RTS process maximum residency observed after the row. Row retained-live is row-local; RTS maximum residency is process cumulative and is therefore labeled as such instead of being smuggled in as per-row truth.
 
 ```sh
-cd /Users/bluerose/Developer/pale-meridian/compiler
+cd compiler # From the repository root.
 cabal run moonlight-linalg:bench:moonlight-linalg-bench -- --once +RTS -T
 ```
 
